@@ -1,9 +1,6 @@
 package matrix
 
-import scala.Tuple.{Size, Union}
-import scala.collection.immutable
 import scala.compiletime.ops.int.*
-import scala.compiletime.{constValue, summonFrom}
 
 trait Vector[Size <: Int & Singleton, A](using Size > 0 =:= true):
   inline final def size: Size = valueOf[Size]

@@ -1,7 +1,5 @@
 package matrix
 
-import scala.compiletime.{constValue, summonFrom}
-
 trait Matrix[Weight <: Int & Singleton, Height <: Int & Singleton, A]:
   inline final def shape: (Weight, Height) = valueOf[Weight] -> valueOf[Height]
 
