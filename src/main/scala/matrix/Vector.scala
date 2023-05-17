@@ -1,17 +1,27 @@
 package matrix
 
 import scala.Tuple.{Size, Union}
+import scala.collection.immutable
+import scala.compiletime.ops.int.*
+import scala.compiletime.{constValue, summonFrom}
 
-trait Vector[Size <: Int, A]:
-  def size: Size
+trait Vector[Size <: Int & Singleton, A](using Size > 0 =:= true):
+  inline final def size: Size = valueOf[Size]
 
 object Vector:
-  private class Impl[Size <: Int, A](size0: Size, array: Array[A]) extends Vector[Size, A]:
-    def size: Size = size0
+  private class Impl[Size <: Int & Singleton, A](array: Array[A])(using Size > 0 =:= true)
+      extends Vector[Size, A]:
 
     override def toString: String = array.mkString("[", ", ", "]")
   end Impl
 
+  def make[Size <: Int & Singleton](tuple: NonEmptyTuple)(using
+    Size > 0 =:= true,
+    Tuple.Size[tuple.type] =:= Size,
+  ): Vector[Size, Tuple.Union[tuple.type]] =
+    Impl[Size, Tuple.Union[tuple.type]](tuple.toArray.asInstanceOf[Array[Tuple.Union[tuple.type]]])
+
+/*
   def apply(tuple: NonEmptyTuple): Vector[Tuple.Size[tuple.type], Tuple.Union[tuple.type]] =
     Impl(tuple.size, tuple.toArray.asInstanceOf[Array[Tuple.Union[tuple.type]]])
 
@@ -75,3 +85,4 @@ object Vector:
 
   println(vector3)
 }
+ */
