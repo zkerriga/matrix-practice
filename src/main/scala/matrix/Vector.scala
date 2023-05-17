@@ -1,22 +1,45 @@
 package matrix
 
-import scala.compiletime.ops.int.*
+import utils.{ProductA, Semigroup}
 
-trait Vector[Size <: Int & Singleton, A](using Size > 0 =:= true):
+import scala.compiletime.ops.int.*
+import scala.compiletime.ops.boolean.*
+
+import scala.collection.immutable.Vector as Vec
+
+trait Vector[Size <: Int & Singleton, +A](using Size > 0 =:= true):
   inline final def size: Size = valueOf[Size]
 
+  def apply(index: Int & Singleton)(using index.type >= 0 =:= true, index.type < Size =:= true): A
+
+  def +[A1 >: A: Semigroup](vector: Vector[Size, A1]): Vector[Size, A1]
+  def *[A1 >: A, B](scalar: B)(using ProductA[A1, B]): Vector[Size, A1]
+
 object Vector:
-  private class Impl[Size <: Int & Singleton, A](array: Array[A])(using Size > 0 =:= true)
+  private class Impl[Size <: Int & Singleton, +A](vec: Vec[A])(using Size > 0 =:= true)
       extends Vector[Size, A]:
 
-    override def toString: String = array.mkString("[", ", ", "]")
+    def apply(
+      index: Int & Singleton
+    )(using index.type >= 0 =:= true, index.type < Size =:= true): A =
+      vec(index)
+
+    def +[A1 >: A: Semigroup](vector: Vector[Size, A1]): Vector[Size, A1] = ???
+    /*Impl[Size, A1]((0 to size).toArray[Int & Singleton].map { index =>
+        summon[Semigroup[A1]].combine(apply(index), vector(index))
+      })*/
+
+    def *[A1 >: A, B](scalar: B)(using ProductA[A1, B]): Vector[Size, A1] =
+      Impl[Size, A1](vec.map(summon[ProductA[A1, B]].product(_, scalar)))
+
+    override def toString: String = vec.mkString("[", ", ", "]")
   end Impl
 
   def make[Size <: Int & Singleton](tuple: NonEmptyTuple)(using
     Size > 0 =:= true,
     Tuple.Size[tuple.type] =:= Size,
   ): Vector[Size, Tuple.Union[tuple.type]] =
-    Impl[Size, Tuple.Union[tuple.type]](tuple.toArray.asInstanceOf[Array[Tuple.Union[tuple.type]]])
+    Impl[Size, Tuple.Union[tuple.type]](tuple.toList.toVector)
 
 /*
   def apply(tuple: NonEmptyTuple): Vector[Tuple.Size[tuple.type], Tuple.Union[tuple.type]] =
