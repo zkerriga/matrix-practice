@@ -8,6 +8,8 @@ package utils
 trait HMul[-A, -B, +C]:
   def product(x: A, y: B): C
 
+  extension (x: A) def ***(y: B): C = product(x, y)
+
 object HMul:
   given HMul[String, Int, String]         = _ * _
   given [A: Numeric]: HMul[Int, Int, Int] = _ * _
