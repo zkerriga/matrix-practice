@@ -1,6 +1,6 @@
 package matrix
 
-import utils.{Product, Semigroup}
+import utils.{PMul, Semigroup}
 
 import scala.compiletime.ops.int.*
 import scala.compiletime.ops.boolean.*
@@ -11,7 +11,7 @@ trait Vector[Size <: Int, +A](size: Size)(using Size >= 0 =:= true):
   def apply[i <: Int & Singleton](index: i)(using i ?>= 0, i ?< Size): A
 
   def +[A1 >: A: Semigroup](vector: Vector[Size, A1]): Vector[Size, A1]
-  def *[B, C](scalar: B)(using Product[A, B, C]): Vector[Size, C]
+  def *[B, C](scalar: B)(using PMul[A, B, C]): Vector[Size, C]
 
 object Vector:
   abstract class Tabulate[size <: Int, A]:
@@ -36,7 +36,7 @@ object Vector:
           def run(i: Int) = vec(i: i.type) |+| other(i: i.type)
       )
 
-    def *[B, C](scalar: B)(using Product[A, B, C]): Vector[Size, C] =
+    def *[B, C](scalar: B)(using PMul[A, B, C]): Vector[Size, C] =
       Impl[Size, C](size, vec.map(_ *** scalar))
 
     override def toString: String = vec.mkString("[", ", ", "]")

@@ -1,6 +1,6 @@
 package matrix
 
-import utils.Product
+import utils.PMul
 
 import scala.compiletime.ops.any.==
 
@@ -8,7 +8,7 @@ trait Matrix[Weight <: Int, Height <: Int, +A](weight: Weight, height: Height):
   final def shape: (Weight, Height) = weight -> height
   final def isSquare: Boolean       = weight == height
 
-  def *[B, C](scalar: B)(using Product[A, B, C]): Matrix[Weight, Height, C]
+  def *[B, C](scalar: B)(using PMul[A, B, C]): Matrix[Weight, Height, C]
 
 object Matrix:
   private class Impl[Weight <: Int, Height <: Int, +A](
@@ -16,8 +16,8 @@ object Matrix:
     height: Height,
     table: Vector[Height, Vector[Weight, A]],
   ) extends Matrix[Weight, Height, A](weight, height):
-    def *[B, C](scalar: B)(using Product[A, B, C]): Matrix[Weight, Height, C] = {
-      given Product[Vector[Weight, A], B, Vector[Weight, C]] = _ * _
+    def *[B, C](scalar: B)(using PMul[A, B, C]): Matrix[Weight, Height, C] = {
+      given PMul[Vector[Weight, A], B, Vector[Weight, C]] = _ * _
       Impl[Weight, Height, C](weight, height, table * scalar)
     }
 
