@@ -2,15 +2,16 @@ package matrix
 
 import scala.Tuple.{Size, Union}
 import scala.compiletime.ops.int.*
+import scala.compiletime.ops.boolean.*
 import scala.collection.immutable.Vector as StdVec
 
 trait Vector[Size <: Int, +A](val size: Size)(using Evidence[Size > 0]):
-  def apply[I <: Int & Singleton](index: I)(using Evidence[I >= 0], Evidence[I < Size]): A
+  def apply[I <: Int & Singleton](index: I)(using Evidence[I >= 0 && I < Size]): A
 
 object Vector:
   private class Impl[Size <: Int, +A](size: Size, vec: StdVec[A])(using Evidence[Size > 0])
       extends Vector[Size, A](size):
-    def apply[I <: Int & Singleton](index: I)(using Evidence[I >= 0], Evidence[I < Size]): A =
+    def apply[I <: Int & Singleton](index: I)(using Evidence[I >= 0 && I < Size]): A =
       vec(index)
 
     override def toString: String = vec.mkString("[", ", ", "]")
