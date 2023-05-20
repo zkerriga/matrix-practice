@@ -37,15 +37,13 @@ object Matrix:
       Impl(weight, height, table * scalar)
 
     def +[A1 >: A: Semigroup](other: Matrix[Weight, Height, A1]): Matrix[Weight, Height, A1] =
-      Impl(
-        weight,
-        height,
-        Vector.tabulate[Height, Vector[Weight, A1]](height) { (y: Int) =>
-          Vector.tabulate[Weight, A1](weight) { (x: Int) =>
+      val combinedTable =
+        Vector.tabulate[Height, Vector[Weight, A1]](height) { y =>
+          Vector.tabulate[Weight, A1](weight) { x =>
             apply(y, x) |+| other(y, x)
           }
-        },
-      )
+        }
+      Impl(weight, height, combinedTable)
 
     override def toString: String = table.toString
 

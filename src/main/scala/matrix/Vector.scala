@@ -21,7 +21,7 @@ object Vector:
     def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C] =
       Impl(size, vec.map(_ *** scalar))
     def +[A1 >: A: Semigroup](other: Vector[Size, A1]): Vector[Size, A1] =
-      tabulate[Size, A1](size) { (index: Int) => vec(index) |+| other(index) }
+      tabulate[Size, A1](size) { index => vec(index) |+| other(index) }
 
     override def toString: String = vec.mkString("[", ", ", "]")
 
