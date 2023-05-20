@@ -1,108 +1,77 @@
 package matrix
 
-import utils.{ProductA, Semigroup}
+import utils.{HMul, Semigroup}
 
-import scala.compiletime.ops.int.*
+import scala.collection.immutable.Vector as StdVec
 import scala.compiletime.ops.boolean.*
+import scala.compiletime.ops.int.*
 
-import scala.collection.immutable.Vector as Vec
+trait Vector[Size <: Int, +A](val size: Size)(using Evidence[Size > 0]):
+  def apply[I <: Int & Singleton](index: I)(using Evidence[I >= 0 && I < Size]): A
 
-trait Vector[Size <: Int & Singleton, +A](using Size > 0 =:= true):
-  inline final def size: Size = valueOf[Size]
+  def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C]
+  def +[A1 >: A: Semigroup](other: Vector[Size, A1]): Vector[Size, A1]
 
-  def apply(index: Int & Singleton)(using index.type >= 0 =:= true, index.type < Size =:= true): A
-
-  def +[A1 >: A: Semigroup](vector: Vector[Size, A1]): Vector[Size, A1]
-  def *[A1 >: A, B](scalar: B)(using ProductA[A1, B]): Vector[Size, A1]
+  override def equals(obj: Any): Boolean = (this eq obj.asInstanceOf[AnyRef]) || (obj match
+    case other: Vector[Size @unchecked, A @unchecked] =>
+      (size == other.size) && (0 until size).forall { index =>
+        given Evidence[index.type >= 0 && index.type < Size] = guaranteed
+        apply(index) == other.apply(index)
+      }
+    case _ => false
+  )
 
 object Vector:
-  private class Impl[Size <: Int & Singleton, +A](vec: Vec[A])(using Size > 0 =:= true)
-      extends Vector[Size, A]:
-
-    def apply(
-      index: Int & Singleton
-    )(using index.type >= 0 =:= true, index.type < Size =:= true): A =
+  private class Impl[Size <: Int, +A](size: Size, vec: StdVec[A])(using Evidence[Size > 0])
+      extends Vector[Size, A](size):
+    def apply[I <: Int & Singleton](index: I)(using Evidence[I >= 0 && I < Size]): A =
       vec(index)
 
-    def +[A1 >: A: Semigroup](vector: Vector[Size, A1]): Vector[Size, A1] = ???
-    /*Impl[Size, A1]((0 to size).toArray[Int & Singleton].map { index =>
-        summon[Semigroup[A1]].combine(apply(index), vector(index))
-      })*/
-
-    def *[A1 >: A, B](scalar: B)(using ProductA[A1, B]): Vector[Size, A1] =
-      Impl[Size, A1](vec.map(summon[ProductA[A1, B]].product(_, scalar)))
+    def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C] =
+      Impl(size, vec.map(_ *** scalar))
+    def +[A1 >: A: Semigroup](other: Vector[Size, A1]): Vector[Size, A1] =
+      tabulate[Size, A1](size) { index => vec(index) |+| other(index) }
 
     override def toString: String = vec.mkString("[", ", ", "]")
-  end Impl
 
-  def make[Size <: Int & Singleton](tuple: NonEmptyTuple)(using
-    Size > 0 =:= true,
-    Tuple.Size[tuple.type] =:= Size,
-  ): Vector[Size, Tuple.Union[tuple.type]] =
-    Impl[Size, Tuple.Union[tuple.type]](tuple.toList.toVector)
+  type Make[T <: NonEmptyTuple] = Vector[Tuple.Size[T], Tuple.Union[T]]
+  def make(tuple: NonEmptyTuple): Make[tuple.type] =
+    Impl(tuple.size, tuple.toList.toVector)(using guaranteed)
 
-/*
-  def apply(tuple: NonEmptyTuple): Vector[Tuple.Size[tuple.type], Tuple.Union[tuple.type]] =
-    Impl(tuple.size, tuple.toArray.asInstanceOf[Array[Tuple.Union[tuple.type]]])
+  /**
+   * [[make]] function returns [[Vector]] with raw types which might be inconvenient. [[of]] method
+   * solve the problem by refining the types.
+   *
+   * But we cannot just return `make(tuple)` expecting `Vector[Size, A]`, scala can't match types
+   * even though evidences are provided separately. We need to create a function from
+   * `Vector[Tuple.Size[tuple.type], Tuple.Union[tuple.type]]` to `Vector[Size, A]`. Let's see how
+   * it works:
+   *
+   * First, we lift `sizeEvidence` so we get:
+   * {{{
+   *  val cleanSize: Vector[Tuple.Size[tuple.type], Tuple.Union[tuple.type]] =:= Vector[Size, Tuple.Union[tuple.type]]
+   * }}}
+   * Given that [[=:=]] is actually a `From => To` function, now we have a function from [[Vector]]
+   * with raw size to [[Vector]] with clean size.
+   *
+   * Second, we lift `unionEvidence` on [[Vector]] with clean size so we get:
+   * {{{
+   *  val cleanUnion: Vector[Size, Tuple.Union[tuple.type]] <:< Vector[Size, A]
+   * }}}
+   * Given that [[<:<]] is also a `From => To` function, we can combine both functions to the one
+   * which takes [[Vector]] with raw types and returns it with clean types.
+   */
+  def of[Size <: Int, A](tuple: NonEmptyTuple)(using
+    sizeEvidence: Tuple.Size[tuple.type] =:= Size,
+    unionEvidence: Tuple.Union[tuple.type] <:< A,
+  ): Vector[Size, A] =
+    val cleanSize  = sizeEvidence.liftCo[[x] =>> Vector[x & Int, Tuple.Union[tuple.type]]]
+    val cleanUnion = unionEvidence.liftCo[[x] =>> Vector[Size, x]]
+    cleanSize.andThen(cleanUnion)(make(tuple))
 
-  def make[A](tuple: NonEmptyTuple)(using
-    Tuple.Union[tuple.type] =:= A
-  ): Vector[Tuple.Size[tuple.type], A] =
-    apply(tuple).asInstanceOf[Vector[Tuple.Size[tuple.type], A]]
+  type OnEvincedIndex[Size <: Int, I <: Int, A] = Evidence[I >= 0 && I < Size] ?=> A
+  type Tabulate[Size <: Int, A] = (index: Int) => OnEvincedIndex[Size, index.type, A]
 
-  def makeSized[Size <: Int, A](
-    tuple: NonEmptyTuple
-  )(using Tuple.Union[tuple.type] =:= A, Tuple.Size[tuple.type] =:= Size): Vector[Size, A] =
-    apply(tuple).asInstanceOf[Vector[Size, A]]
-
-@main def test = {
-  import scala.compiletime.ops.int.*
-  import scala.compiletime.ops.any.*
-  import scala.compiletime.ops.boolean.*
-
-  def test[Size <: Int & Singleton](size: Size)(using Size > 0 =:= true): Size = size
-
-  def test2[Size <: Int & Singleton, Tup <: Tuple](
-    t: Tup
-  )(using Size > 0 =:= true, Tuple.Size[Tup] =:= Size): Unit = ()
-
-  class Partial[Size <: Int & Singleton]() {
-    def apply[Tup <: Tuple](t: Tup)(using Tuple.Size[Tup] =:= Size): Unit = ???
-  }
-  def test3[Size <: Int & Singleton]: Partial[Size] = Partial[Size]
-
-  def test4[Tup <: Tuple](t: Tup): Tuple.Size[Tup] = t.size
-
-  /*type Concat[X <: Tuple, +Y <: Tuple] <: Tuple = X match {
-    case EmptyTuple => Y
-    case x1 *: xs1 => x1 *: Concat[xs1, Y]
-  }*/
-
-  type AllElementsOfType[X <: Tuple, A] <: Boolean = X match {
-    case EmptyTuple => true
-    case x1 *: xs1  => (x1 == A) && AllElementsOfType[xs1, A]
-  }
-
-//  def test5[Tup <: Tuple](t: Tup)(using AllElementsOfType[Tup, Tuple.Head[Tup]] =:= true): (Tuple.Size[Tup], List[Tuple.Union[Tup]]) = (t.size, t.toList)
-  def test6[Tup <: Tuple](t: Tup): (Tuple.Size[Tup], List[Tuple.Union[Tup]]) =
-    (t.size, t.toList.asInstanceOf[List[Tuple.Union[Tup]]])
-
-  def test7(t: Tuple): (Tuple.Size[t.type], List[Tuple.Union[t.type]]) = (t.size, t.toList)
-
-  def test8(t1: Tuple, t2: Tuple)(using Tuple.Size[t1.type] =:= Tuple.Size[t2.type]): Unit = ()
-//  val result = test2[2, (Char, Char)](('a', 'b'))
-//  val result = test4(('a', 'b'))
-//  val result = test5(('a', 'b', 'c'))
-//  val result: (3, List[Char]) = test6(('a', 'b', 'c'))
-//  val result: (3, List[Char]) = test7(('a', 'b', 'c'))
-
-//  println(s"result = ${result}")
-
-  val vector3: Vector[3, Double] = Vector((1.2, 4.0, 1.0))
-
-  val vector2: Vector[3, Double] = Vector.make[Double]((1.0, 3.5, 5.4))
-  val vector1: Vector[3, Double] = Vector.makeSized[3, Double]((1.0, 3.5, 5.4))
-
-  println(vector3)
-}
- */
+  def tabulate[Size <: Int, A](size: Size)(f: Tabulate[Size, A])(using
+    Evidence[Size > 0]
+  ): Vector[Size, A] = Impl(size, StdVec.tabulate(size) { index => f(index)(using guaranteed) })
