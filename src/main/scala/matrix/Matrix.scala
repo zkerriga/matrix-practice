@@ -1,12 +1,13 @@
 package matrix
 
-import utils.HMul
+import utils.{HMul, Semigroup}
 
 import scala.compiletime.ops.boolean.*
 import scala.compiletime.ops.int.*
 
 trait Matrix[Weight <: Int, Height <: Int, +A](weight: Weight, height: Height)(using
-  Evidence[Weight > 0 && Height > 0]
+  Evidence[Weight > 0],
+  Evidence[Height > 0],
 ):
   final def shape: (Weight, Height) = weight -> height
   final def isSquare: Boolean       = weight == height
@@ -17,13 +18,14 @@ trait Matrix[Weight <: Int, Height <: Int, +A](weight: Weight, height: Height)(u
   ): A
 
   def *[B, C](scalar: B)(using HMul[A, B, C]): Matrix[Weight, Height, C]
+  def +[A1 >: A: Semigroup](other: Matrix[Weight, Height, A1]): Matrix[Weight, Height, A1]
 
 object Matrix:
   private class Impl[Weight <: Int, Height <: Int, +A](
     weight: Weight,
     height: Height,
     table: Vector[Height, Vector[Weight, A]],
-  )(using Evidence[Weight > 0 && Height > 0])
+  )(using Evidence[Weight > 0], Evidence[Height > 0])
       extends Matrix[Weight, Height, A](weight, height):
     def apply[Row <: Int & Singleton, Column <: Int & Singleton](row: Row, column: Column)(using
       Evidence[Row >= 0 && Row < Height],
@@ -34,10 +36,24 @@ object Matrix:
       given HMul[Vector[Weight, A], B, Vector[Weight, C]] = _ * _
       Impl(weight, height, table * scalar)
 
+    def +[A1 >: A: Semigroup](other: Matrix[Weight, Height, A1]): Matrix[Weight, Height, A1] =
+      Impl(
+        weight,
+        height,
+        Vector.tabulate(height) {
+          new:
+            def run(y: Int) = Vector.tabulate(weight) {
+              new:
+                def run(x: Int) = apply(y, x) |+| other(y, x)
+            }
+        },
+      )
+
     override def toString: String = table.toString
 
   def apply[Weight <: Int, Height <: Int, A](table: Vector[Height, Vector[Weight, A]])(using
     ValueOf[Weight],
     ValueOf[Height],
-    Evidence[Weight > 0 && Height > 0], // todo: can we take the evidence from the table?
+    Evidence[Weight > 0],
+    Evidence[Height > 0], // todo: can we take the evidence from the table?
   ): Matrix[Weight, Height, A] = Impl(valueOf, valueOf, table)

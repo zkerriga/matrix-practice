@@ -1,6 +1,6 @@
 package matrix
 
-import utils.HMul
+import utils.{HMul, Semigroup}
 
 import scala.collection.immutable.Vector as StdVec
 import scala.compiletime.ops.boolean.*
@@ -10,6 +10,7 @@ trait Vector[Size <: Int, +A](val size: Size)(using Evidence[Size > 0]):
   def apply[I <: Int & Singleton](index: I)(using Evidence[I >= 0 && I < Size]): A
 
   def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C]
+  def +[A1 >: A: Semigroup](other: Vector[Size, A1]): Vector[Size, A1]
 
 object Vector:
   private class Impl[Size <: Int, +A](size: Size, vec: StdVec[A])(using Evidence[Size > 0])
@@ -19,6 +20,11 @@ object Vector:
 
     def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C] =
       Impl(size, vec.map(_ *** scalar))
+    def +[A1 >: A: Semigroup](other: Vector[Size, A1]): Vector[Size, A1] =
+      tabulate[Size, A1](size) {
+        new:
+          def run(index: Int) = vec(index) |+| other(index)
+      }
 
     override def toString: String = vec.mkString("[", ", ", "]")
 
@@ -56,3 +62,11 @@ object Vector:
     val cleanSize  = sizeEvidence.liftCo[[x] =>> Vector[x & Int, Tuple.Union[tuple.type]]]
     val cleanUnion = unionEvidence.liftCo[[x] =>> Vector[Size, x]]
     cleanSize.andThen(cleanUnion)(make(tuple))
+
+  trait Tabulate[Size <: Int, A]:
+    def run(index: Int): Evidence[index.type >= 0 && index.type < Size] ?=> A
+
+  def tabulate[Size <: Int, A](size: Size)(f: Tabulate[Size, A])(using
+    Evidence[Size > 0]
+  ): Vector[Size, A] =
+    Impl(size, StdVec.tabulate(size) { index => f.run(index)(using guaranteed) })
