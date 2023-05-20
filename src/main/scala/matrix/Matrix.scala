@@ -20,6 +20,18 @@ trait Matrix[Weight <: Int, Height <: Int, +A](weight: Weight, height: Height)(u
   def *[B, C](scalar: B)(using HMul[A, B, C]): Matrix[Weight, Height, C]
   def +[A1 >: A: Semigroup](other: Matrix[Weight, Height, A1]): Matrix[Weight, Height, A1]
 
+  override def equals(obj: Any): Boolean = (this eq obj.asInstanceOf[AnyRef]) || (obj match
+    case other: Matrix[Weight @unchecked, Height @unchecked, A @unchecked] =>
+      (shape == other.shape) && (0 until height).forall { y =>
+        given Evidence[y.type >= 0 && y.type < Height] = guaranteed
+        (0 until weight).forall { x =>
+          given Evidence[x.type >= 0 && x.type < Weight] = guaranteed
+          apply(y, x) == other.apply(y, x)
+        }
+      }
+    case _ => false
+  )
+
 object Matrix:
   private class Impl[Weight <: Int, Height <: Int, +A](
     weight: Weight,

@@ -12,6 +12,15 @@ trait Vector[Size <: Int, +A](val size: Size)(using Evidence[Size > 0]):
   def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C]
   def +[A1 >: A: Semigroup](other: Vector[Size, A1]): Vector[Size, A1]
 
+  override def equals(obj: Any): Boolean = (this eq obj.asInstanceOf[AnyRef]) || (obj match
+    case other: Vector[Size @unchecked, A @unchecked] =>
+      (size == other.size) && (0 until size).forall { index =>
+        given Evidence[index.type >= 0 && index.type < Size] = guaranteed
+        apply(index) == other.apply(index)
+      }
+    case _ => false
+  )
+
 object Vector:
   private class Impl[Size <: Int, +A](size: Size, vec: StdVec[A])(using Evidence[Size > 0])
       extends Vector[Size, A](size):
