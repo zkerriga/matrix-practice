@@ -21,10 +21,7 @@ object Vector:
     def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C] =
       Impl(size, vec.map(_ *** scalar))
     def +[A1 >: A: Semigroup](other: Vector[Size, A1]): Vector[Size, A1] =
-      tabulate[Size, A1](size) {
-        new:
-          def run(index: Int) = vec(index) |+| other(index)
-      }
+      tabulate[Size, A1](size) { (index: Int) => vec(index) |+| other(index) }
 
     override def toString: String = vec.mkString("[", ", ", "]")
 
@@ -63,10 +60,9 @@ object Vector:
     val cleanUnion = unionEvidence.liftCo[[x] =>> Vector[Size, x]]
     cleanSize.andThen(cleanUnion)(make(tuple))
 
-  trait Tabulate[Size <: Int, A]:
-    def run(index: Int): Evidence[index.type >= 0 && index.type < Size] ?=> A
+  type OnEvincedIndex[Size <: Int, I <: Int, A] = Evidence[I >= 0 && I < Size] ?=> A
+  type Tabulate[Size <: Int, A] = (index: Int) => OnEvincedIndex[Size, index.type, A]
 
   def tabulate[Size <: Int, A](size: Size)(f: Tabulate[Size, A])(using
     Evidence[Size > 0]
-  ): Vector[Size, A] =
-    Impl(size, StdVec.tabulate(size) { index => f.run(index)(using guaranteed) })
+  ): Vector[Size, A] = Impl(size, StdVec.tabulate(size) { index => f(index)(using guaranteed) })

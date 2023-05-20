@@ -40,12 +40,10 @@ object Matrix:
       Impl(
         weight,
         height,
-        Vector.tabulate(height) {
-          new:
-            def run(y: Int) = Vector.tabulate(weight) {
-              new:
-                def run(x: Int) = apply(y, x) |+| other(y, x)
-            }
+        Vector.tabulate[Height, Vector[Weight, A1]](height) { (y: Int) =>
+          Vector.tabulate[Weight, A1](weight) { (x: Int) =>
+            apply(y, x) |+| other(y, x)
+          }
         },
       )
 
