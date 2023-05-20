@@ -8,3 +8,4 @@ trait Semigroup[A]:
 object Semigroup:
   given Semigroup[String] = _ + _
   given Semigroup[Int]    = _ + _
+  given Semigroup[Double] = _ + _

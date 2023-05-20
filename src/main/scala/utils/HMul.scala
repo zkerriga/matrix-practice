@@ -11,5 +11,6 @@ trait HMul[-A, -B, +C]:
   extension (x: A) def ***(y: B): C = product(x, y)
 
 object HMul:
-  given HMul[String, Int, String] = _ * _
-  given HMul[Int, Int, Int]       = _ * _
+  given HMul[String, Int, String]    = _ * _
+  given HMul[Int, Int, Int]          = _ * _
+  given HMul[Double, Double, Double] = _ * _
