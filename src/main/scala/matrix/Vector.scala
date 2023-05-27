@@ -3,11 +3,10 @@ package matrix
 import utils.{HMul, Semigroup}
 
 import scala.collection.immutable.Vector as StdVec
-import scala.compiletime.ops.boolean.*
 import scala.compiletime.ops.int.*
 
 trait Vector[Size <: Int, +A](val size: Size)(using Evidence[Size > 0]):
-  def apply[I <: Int & Singleton](index: I)(using Evidence[I >= 0 && I < Size]): A
+  def apply[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Size]): A
 
   def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C]
   def +[A1 >: A: Semigroup](other: Vector[Size, A1]): Vector[Size, A1]
@@ -15,7 +14,7 @@ trait Vector[Size <: Int, +A](val size: Size)(using Evidence[Size > 0]):
   override def equals(obj: Any): Boolean = (this eq obj.asInstanceOf[AnyRef]) || (obj match
     case other: Vector[Size @unchecked, A @unchecked] =>
       (size == other.size) && (0 until size).forall { index =>
-        given Evidence[index.type >= 0 && index.type < Size] = guaranteed
+        given Evidence[index.type IsIndexFor Size] = guaranteed
         apply(index) == other.apply(index)
       }
     case _ => false
@@ -24,7 +23,7 @@ trait Vector[Size <: Int, +A](val size: Size)(using Evidence[Size > 0]):
 object Vector:
   private class Impl[Size <: Int, +A](size: Size, vec: StdVec[A])(using Evidence[Size > 0])
       extends Vector[Size, A](size):
-    def apply[I <: Int & Singleton](index: I)(using Evidence[I >= 0 && I < Size]): A =
+    def apply[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Size]): A =
       vec(index)
 
     def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C] =
@@ -69,7 +68,7 @@ object Vector:
     val cleanUnion = unionEvidence.liftCo[[x] =>> Vector[Size, x]]
     cleanSize.andThen(cleanUnion)(make(tuple))
 
-  type OnEvincedIndex[Size <: Int, I <: Int, A] = Evidence[I >= 0 && I < Size] ?=> A
+  type OnEvincedIndex[Size <: Int, I <: Int, A] = Evidence[I IsIndexFor Size] ?=> A
   type Tabulate[Size <: Int, A] = (index: Int) => OnEvincedIndex[Size, index.type, A]
 
   def tabulate[Size <: Int, A](size: Size)(f: Tabulate[Size, A])(using

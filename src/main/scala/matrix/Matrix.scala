@@ -2,7 +2,6 @@ package matrix
 
 import utils.{HMul, Semigroup}
 
-import scala.compiletime.ops.boolean.*
 import scala.compiletime.ops.int.*
 
 trait Matrix[Weight <: Int, Height <: Int, +A](weight: Weight, height: Height)(using
@@ -13,8 +12,8 @@ trait Matrix[Weight <: Int, Height <: Int, +A](weight: Weight, height: Height)(u
   final def isSquare: Boolean       = weight == height
 
   def apply[Row <: Int & Singleton, Column <: Int & Singleton](row: Row, column: Column)(using
-    Evidence[Row >= 0 && Row < Height],
-    Evidence[Column >= 0 && Column < Weight],
+    Evidence[Row IsIndexFor Height],
+    Evidence[Column IsIndexFor Weight],
   ): A
 
   def *[B, C](scalar: B)(using HMul[A, B, C]): Matrix[Weight, Height, C]
@@ -23,9 +22,9 @@ trait Matrix[Weight <: Int, Height <: Int, +A](weight: Weight, height: Height)(u
   override def equals(obj: Any): Boolean = (this eq obj.asInstanceOf[AnyRef]) || (obj match
     case other: Matrix[Weight @unchecked, Height @unchecked, A @unchecked] =>
       (shape == other.shape) && (0 until height).forall { y =>
-        given Evidence[y.type >= 0 && y.type < Height] = guaranteed
+        given Evidence[y.type IsIndexFor Height] = guaranteed
         (0 until weight).forall { x =>
-          given Evidence[x.type >= 0 && x.type < Weight] = guaranteed
+          given Evidence[x.type IsIndexFor Weight] = guaranteed
           apply(y, x) == other.apply(y, x)
         }
       }
@@ -40,8 +39,8 @@ object Matrix:
   )(using Evidence[Weight > 0], Evidence[Height > 0])
       extends Matrix[Weight, Height, A](weight, height):
     def apply[Row <: Int & Singleton, Column <: Int & Singleton](row: Row, column: Column)(using
-      Evidence[Row >= 0 && Row < Height],
-      Evidence[Column >= 0 && Column < Weight],
+      Evidence[Row IsIndexFor Height],
+      Evidence[Column IsIndexFor Weight],
     ): A = table.apply[Row](row).apply[Column](column)
 
     def *[B, C](scalar: B)(using HMul[A, B, C]): Matrix[Weight, Height, C] =
@@ -63,5 +62,5 @@ object Matrix:
     ValueOf[Weight],
     ValueOf[Height],
     Evidence[Weight > 0],
-    Evidence[Height > 0], // todo: can we take the evidence from the table?
+    Evidence[Height > 0],
   ): Matrix[Weight, Height, A] = Impl(valueOf, valueOf, table)
