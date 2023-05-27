@@ -9,8 +9,11 @@ trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[S
   def apply[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Size]): A
   def head: A
 
-  def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C]
-  def +[A1 >: A: Semigroup](other: Vector[Size, A1]): Vector[Size, A1]
+  def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C]         = map(_ *** scalar)
+  def +[A1 >: A: Semigroup](other: Vector[Size, A1]): Vector[Size, A1] = Vector.map2(this, other)(_ |+| _)
+
+  def map[B](f: A => B): Vector[Size, B]
+  def reduceLeft[B >: A](op: (B, A) => B): B
 
   override def equals(obj: Any): Boolean = (this eq obj.asInstanceOf[AnyRef]) || (obj match
     case other: Vector[Size @unchecked, A @unchecked] =>
@@ -28,10 +31,10 @@ object Vector:
       vec(index)
     def head: A = vec.head
 
-    def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C] =
-      Impl(size, vec.map(_ *** scalar))
-    def +[A1 >: A: Semigroup](other: Vector[Size, A1]): Vector[Size, A1] =
-      tabulate[Size, A1](size) { index => vec(index) |+| other(index) }
+    def map[B](f: A => B): Vector[Size, B] =
+      Impl(size, vec.map(f))
+    def reduceLeft[B >: A](op: (B, A) => B): B =
+      vec.reduceLeft(op)
 
     override def toString: String = vec.mkString("[", ", ", "]")
 
@@ -76,3 +79,9 @@ object Vector:
 
   def tabulate[Size <: Int, A](size: Size)(f: Tabulate[Size, A])(using Evidence[Size > 0]): Vector[Size, A] =
     Impl(size, StdVec.tabulate(size) { index => f(index)(using guaranteed) })
+
+  def map2[Size <: Int, A, B, C](v1: Vector[Size, A], v2: Vector[Size, B])(
+    f: (A, B) => C
+  ): Vector[Size, C] =
+    import v1.sizeEvidence
+    tabulate[Size, C](v1.size) { index => f(v1(index), v2(index)) }
