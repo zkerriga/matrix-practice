@@ -61,6 +61,8 @@ object Matrix:
   def apply[Weight <: Int, Height <: Int, A](table: Vector[Height, Vector[Weight, A]])(using
     ValueOf[Weight],
     ValueOf[Height],
-    Evidence[Weight > 0],
-    Evidence[Height > 0],
-  ): Matrix[Weight, Height, A] = Impl(valueOf, valueOf, table)
+  ): Matrix[Weight, Height, A] =
+    val row = table.head
+    import table.sizeEvidence
+    import row.sizeEvidence
+    Impl(valueOf, valueOf, table)

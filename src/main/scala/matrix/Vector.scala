@@ -5,8 +5,9 @@ import utils.{HMul, Semigroup}
 import scala.collection.immutable.Vector as StdVec
 import scala.compiletime.ops.int.*
 
-trait Vector[Size <: Int, +A](val size: Size)(using Evidence[Size > 0]):
+trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[Size > 0]):
   def apply[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Size]): A
+  def head: A
 
   def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C]
   def +[A1 >: A: Semigroup](other: Vector[Size, A1]): Vector[Size, A1]
@@ -25,6 +26,7 @@ object Vector:
       extends Vector[Size, A](size):
     def apply[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Size]): A =
       vec(index)
+    def head: A = vec.head
 
     def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C] =
       Impl(size, vec.map(_ *** scalar))
