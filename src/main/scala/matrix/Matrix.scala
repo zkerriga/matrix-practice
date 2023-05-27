@@ -4,9 +4,9 @@ import utils.{HMul, Semigroup}
 
 import scala.compiletime.ops.int.*
 
-trait Matrix[Weight <: Int, Height <: Int, +A](weight: Weight, height: Height)(using
-  Evidence[Weight > 0],
-  Evidence[Height > 0],
+trait Matrix[Weight <: Int, Height <: Int, +A](val weight: Weight, val height: Height)(using
+  val weightEvidence: Evidence[Weight > 0],
+  val heightEvidence: Evidence[Height > 0],
 ):
   final def shape: (Weight, Height) = weight -> height
   final def isSquare: Boolean       = weight == height
@@ -16,8 +16,11 @@ trait Matrix[Weight <: Int, Height <: Int, +A](weight: Weight, height: Height)(u
     Evidence[Column IsIndexFor Weight],
   ): A
 
-  def *[B, C](scalar: B)(using HMul[A, B, C]): Matrix[Weight, Height, C]
-  def +[A1 >: A: Semigroup](other: Matrix[Weight, Height, A1]): Matrix[Weight, Height, A1]
+  def *[B, C](scalar: B)(using HMul[A, B, C]): Matrix[Weight, Height, C] = map(_ *** scalar)
+  def +[A1 >: A: Semigroup](other: Matrix[Weight, Height, A1]): Matrix[Weight, Height, A1] =
+    Matrix.map2(this, other)(_ |+| _)
+
+  def map[B](f: A => B): Matrix[Weight, Height, B]
 
   override def equals(obj: Any): Boolean = (this eq obj.asInstanceOf[AnyRef]) || (obj match
     case other: Matrix[Weight @unchecked, Height @unchecked, A @unchecked] =>
@@ -43,18 +46,8 @@ object Matrix:
       Evidence[Column IsIndexFor Weight],
     ): A = table.apply[Row](row).apply[Column](column)
 
-    def *[B, C](scalar: B)(using HMul[A, B, C]): Matrix[Weight, Height, C] =
-      given HMul[Vector[Weight, A], B, Vector[Weight, C]] = _ * _
-      Impl(weight, height, table * scalar)
-
-    def +[A1 >: A: Semigroup](other: Matrix[Weight, Height, A1]): Matrix[Weight, Height, A1] =
-      val combinedTable =
-        Vector.tabulate[Height, Vector[Weight, A1]](height) { y =>
-          Vector.tabulate[Weight, A1](weight) { x =>
-            apply(y, x) |+| other(y, x)
-          }
-        }
-      Impl(weight, height, combinedTable)
+    def map[B](f: A => B): Matrix[Weight, Height, B] =
+      Impl(weight, height, table.map(_.map(f)))
 
     override def toString: String = table.toString
 
@@ -66,3 +59,30 @@ object Matrix:
     import table.sizeEvidence
     import row.sizeEvidence
     Impl(valueOf, valueOf, table)
+
+  type OnEvincedIndexes[Weight <: Int, Height <: Int, Y <: Int, X <: Int, A] =
+    (Evidence[Y IsIndexFor Height], Evidence[X IsIndexFor Weight]) ?=> A
+  type Tabulate[Weight <: Int, Height <: Int, A] =
+    (y: Int, x: Int) => OnEvincedIndexes[Weight, Height, y.type, x.type, A]
+
+  def tabulate[Weight <: Int, Height <: Int, A](weight: Weight, height: Height)(
+    f: Tabulate[Weight, Height, A]
+  )(using Evidence[Weight > 0], Evidence[Height > 0]): Matrix[Weight, Height, A] =
+    Impl(
+      weight,
+      height,
+      Vector.tabulate[Height, Vector[Weight, A]](height) { y =>
+        Vector.tabulate[Weight, A](weight) { x =>
+          f(y, x)(using guaranteed)
+        }
+      },
+    )
+
+  def map2[Weight <: Int, Height <: Int, A, B, C](
+    m1: Matrix[Weight, Height, A],
+    m2: Matrix[Weight, Height, B],
+  )(f: (A, B) => C): Matrix[Weight, Height, C] =
+    import m1.{weightEvidence, heightEvidence}
+    tabulate[Weight, Height, C](m1.weight, m1.height) { (y, x) =>
+      f(m1(y, x), m2(y, x))
+    }

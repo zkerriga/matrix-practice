@@ -2,7 +2,6 @@ package matrix
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import utils.Semigroup
 
 class Ex01Spec extends AnyFlatSpec with Matchers:
   "linearCombination" should "return the correct linear combination of identity vectors and coefficients" in {
