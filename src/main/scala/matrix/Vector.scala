@@ -1,6 +1,6 @@
 package matrix
 
-import utils.{HMul, Semigroup}
+import utils.{Absolute, HMul, Semigroup}
 
 import scala.collection.immutable.Vector as StdVec
 import scala.compiletime.ops.int.*
@@ -13,6 +13,10 @@ trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[S
   infix def +[A1 >: A: Semigroup](other: Vector[Size, A1]): Vector[Size, A1] = Vector.map2(this, other)(_ |+| _)
   infix def dot[B, C](other: Vector[Size, B])(using HMul[A, B, C], Semigroup[C]): C =
     Vector.map2(this, other)(_ *** _).reduceLeft(_ |+| _)
+
+  def norm1[A1 >: A: Semigroup: Absolute]: A1 = reduceLeft[A1](_ |+| _).abs
+//  def norm: A
+//  def normInf: A
 
   def map[B](f: A => B): Vector[Size, B]
   def reduceLeft[B >: A](op: (B, A) => B): B
