@@ -1,6 +1,6 @@
 package matrix
 
-import utils.{Absolute, HMul, Semigroup}
+import utils.{Absolute, HMul, Semigroup, SquareRoot}
 
 import scala.collection.immutable.Vector as StdVec
 import scala.compiletime.ops.int.*
@@ -14,8 +14,8 @@ trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[S
   infix def dot[B, C](other: Vector[Size, B])(using HMul[A, B, C], Semigroup[C]): C =
     Vector.map2(this, other)(_ *** _).reduceLeft(_ |+| _)
 
-  def norm1[A1 >: A: Semigroup: Absolute]: A1 = reduceLeft[A1](_ |+| _).abs
-//  def norm: A
+  def norm1[A1 >: A: Semigroup: Absolute]: A1  = reduceLeft[A1](_ |+| _).abs
+  def norm[A1 >: A: HMul.Homo: SquareRoot]: A1 = ???
 //  def normInf: A
 
   def map[B](f: A => B): Vector[Size, B]
