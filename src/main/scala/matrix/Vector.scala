@@ -9,8 +9,10 @@ trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[S
   def apply[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Size]): A
   def head: A
 
-  def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C]         = map(_ *** scalar)
-  def +[A1 >: A: Semigroup](other: Vector[Size, A1]): Vector[Size, A1] = Vector.map2(this, other)(_ |+| _)
+  infix def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C]         = map(_ *** scalar)
+  infix def +[A1 >: A: Semigroup](other: Vector[Size, A1]): Vector[Size, A1] = Vector.map2(this, other)(_ |+| _)
+  infix def dot[B, C](other: Vector[Size, B])(using HMul[A, B, C], Semigroup[C]): C =
+    Vector.map2(this, other)(_ *** _).reduceLeft(_ |+| _)
 
   def map[B](f: A => B): Vector[Size, B]
   def reduceLeft[B >: A](op: (B, A) => B): B
