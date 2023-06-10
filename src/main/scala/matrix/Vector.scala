@@ -1,6 +1,6 @@
 package matrix
 
-import utils.{Absolute, HMul, Semigroup, SquareRoot}
+import utils.{Absolute, HMul, LinearInterpolation, Semigroup, SquareRoot}
 
 import scala.collection.immutable.Vector as StdVec
 import scala.compiletime.ops.int.*
@@ -91,3 +91,6 @@ object Vector:
   ): Vector[Size, C] =
     import v1.sizeEvidence
     tabulate[Size, C](v1.size) { index => f(v1(index), v2(index)) }
+
+  given [Size <: Int, A, Time](using LinearInterpolation[A, Time]): LinearInterpolation[Vector[Size, A], Time] =
+    (v1, v2, time) => map2(v1, v2)((value1, value2) => (value1, value2).interpolateBy(time))
