@@ -2,7 +2,6 @@ package matrix
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import utils.LinearInterpolation.given
 
 class Ex03Spec extends AnyFlatSpec with Matchers:
   "Vector.dot" should "return correct dot product of zeros and ones vectors" in {

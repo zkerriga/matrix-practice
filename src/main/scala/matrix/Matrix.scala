@@ -1,6 +1,8 @@
 package matrix
 
-import utils.{HMul, LinearInterpolation, Semigroup}
+import math.*
+import math.aliases.*
+import math.syntax.*
 
 import scala.compiletime.ops.int.*
 
@@ -16,9 +18,11 @@ trait Matrix[Weight <: Int, Height <: Int, +A](val weight: Weight, val height: H
     Evidence[Column IsIndexFor Weight],
   ): A
 
-  def *[B, C](scalar: B)(using HMul[A, B, C]): Matrix[Weight, Height, C] = map(_ *** scalar)
-  def +[A1 >: A: Semigroup](other: Matrix[Weight, Height, A1]): Matrix[Weight, Height, A1] =
-    Matrix.map2(this, other)(_ |+| _)
+  def *[B, C](scalar: B)(using HMul[A, B, C]): Matrix[Weight, Height, C] = map(_ * scalar)
+  def +[B, C](other: Matrix[Weight, Height, B])(using HAdd[A, B, C]): Matrix[Weight, Height, C] =
+    Matrix.map2(this, other)(_ + _)
+  def -[B, C](other: Matrix[Weight, Height, B])(using HSub[A, B, C]): Matrix[Weight, Height, C] =
+    Matrix.map2(this, other)(_ - _)
 
   def map[B](f: A => B): Matrix[Weight, Height, B]
 
@@ -50,14 +54,17 @@ object Matrix:
       Impl(weight, height, table.map(_.map(f)))
 
     override def toString: String = table.toString
+  end Impl
+
+  /* CONSTRUCTORS */
 
   def apply[Weight <: Int, Height <: Int, A](table: Vector[Height, Vector[Weight, A]])(using
     ValueOf[Weight],
     ValueOf[Height],
   ): Matrix[Weight, Height, A] =
     val row = table.head
-    import table.sizeEvidence
     import row.sizeEvidence
+    import table.sizeEvidence
     Impl(valueOf, valueOf, table)
 
   type OnEvincedIndexes[Weight <: Int, Height <: Int, Y <: Int, X <: Int, A] =
@@ -82,12 +89,14 @@ object Matrix:
     m1: Matrix[Weight, Height, A],
     m2: Matrix[Weight, Height, B],
   )(f: (A, B) => C): Matrix[Weight, Height, C] =
-    import m1.{weightEvidence, heightEvidence}
+    import m1.{heightEvidence, weightEvidence}
     tabulate[Weight, Height, C](m1.weight, m1.height) { (y, x) =>
       f(m1(y, x), m2(y, x))
     }
 
+  /* ADDITIONAL MATH OPERATIONS */
+
   given [Weight <: Int, Height <: Int, A, Time](using
-    LinearInterpolation[A, Time]
-  ): LinearInterpolation[Matrix[Weight, Height, A], Time] =
-    (m1, m2, time) => map2(m1, m2)((value1, value2) => (value1, value2).interpolateBy(time))
+    Interpolation[A, Time]
+  ): Interpolation[Matrix[Weight, Height, A], Time] =
+    (from, to, time) => map2(from, to)((value1, value2) => (value1, value2).interpolateBy(time))
