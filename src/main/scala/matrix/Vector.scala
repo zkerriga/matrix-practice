@@ -46,6 +46,9 @@ object Vector:
       vec.reduceLeft(op)
 
     override def toString: String = vec.mkString("[", ", ", "]")
+  end Impl
+
+  /* CONSTRUCTORS */
 
   type Make[T <: NonEmptyTuple] = Vector[Tuple.Size[T], Tuple.Union[T]]
   def make(tuple: NonEmptyTuple): Make[tuple.type] =
@@ -95,5 +98,13 @@ object Vector:
     import v1.sizeEvidence
     tabulate[Size, C](v1.size) { index => f(v1(index), v2(index)) }
 
+  /* ADDITIONAL MATH OPERATIONS */
+
   given [Size <: Int, A, Time](using LinearInterpolation[A, Time]): LinearInterpolation[Vector[Size, A], Time] =
     (v1, v2, time) => map2(v1, v2)((value1, value2) => (value1, value2).interpolateBy(time))
+
+  def linearCombination[N <: Int, Size <: Int, A: HMul.Homo: Semigroup](
+    vectors: Vector[N, Vector[Size, A]],
+    coefficients: Vector[N, A],
+  ): Vector[Size, A] =
+    map2(vectors, coefficients)(_ * _).reduceLeft(_ + _)
