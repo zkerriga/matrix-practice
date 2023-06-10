@@ -103,8 +103,8 @@ object Vector:
   given [Size <: Int, A, Time](using LinearInterpolation[A, Time]): LinearInterpolation[Vector[Size, A], Time] =
     (v1, v2, time) => map2(v1, v2)((value1, value2) => (value1, value2).interpolateBy(time))
 
-  def linearCombination[N <: Int, Size <: Int, A: HMul.Homo: Semigroup](
+  def linearCombination[N <: Int, Size <: Int, A, B, C: Semigroup](
     vectors: Vector[N, Vector[Size, A]],
-    coefficients: Vector[N, A],
-  ): Vector[Size, A] =
+    coefficients: Vector[N, B],
+  )(using HMul[A, B, C]): Vector[Size, C] =
     map2(vectors, coefficients)(_ * _).reduceLeft(_ + _)
