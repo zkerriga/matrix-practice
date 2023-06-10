@@ -1,6 +1,6 @@
 package matrix
 
-import utils.{HMul, Semigroup}
+import utils.{HMul, LinearInterpolation, Semigroup}
 
 import scala.compiletime.ops.int.*
 
@@ -86,3 +86,8 @@ object Matrix:
     tabulate[Weight, Height, C](m1.weight, m1.height) { (y, x) =>
       f(m1(y, x), m2(y, x))
     }
+
+  given [Weight <: Int, Height <: Int, A, Time](using
+    LinearInterpolation[A, Time]
+  ): LinearInterpolation[Matrix[Weight, Height, A], Time] =
+    (m1, m2, time) => map2(m1, m2)((value1, value2) => (value1, value2).interpolateBy(time))

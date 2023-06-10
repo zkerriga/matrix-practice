@@ -8,7 +8,7 @@ package utils
 trait HMul[-A, -B, +C]:
   def product(x: A, y: B): C
 
-  extension (x: A) def ***(y: B): C = product(x, y)
+  extension (x: A) infix def ***(y: B): C = product(x, y)
 
 object HMul:
   type Homo[A] = HMul[A, A, A]
