@@ -2,7 +2,7 @@ package matrix
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import utils.LinearInterpolation.given
+import math.Interpolation.given
 
 class Ex02Spec extends AnyFlatSpec with Matchers:
   "LinearInterpolation" should "interpolate correct values for Double" in {
