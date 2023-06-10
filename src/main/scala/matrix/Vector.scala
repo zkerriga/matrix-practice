@@ -4,6 +4,7 @@ import utils.{Absolute, HMul, LinearInterpolation, Semigroup, SquareRoot}
 
 import scala.collection.immutable.Vector as StdVec
 import scala.compiletime.ops.int.*
+import scala.math.Ordering.Implicits.*
 
 trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[Size > 0]):
   def apply[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Size]): A
@@ -12,14 +13,16 @@ trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[S
   infix def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C]         = map(_ *** scalar)
   infix def +[A1 >: A: Semigroup](other: Vector[Size, A1]): Vector[Size, A1] = Vector.map2(this, other)(_ |+| _)
   infix def dot[B, C](other: Vector[Size, B])(using HMul[A, B, C], Semigroup[C]): C =
-    Vector.map2(this, other)(_ *** _).reduceLeft(_ |+| _)
+    Vector.map2(this, other)(_ *** _).sum
 
-  def norm1[A1 >: A: Semigroup: Absolute]: A1  = reduceLeft[A1](_ |+| _).abs
-  def norm[A1 >: A: HMul.Homo: SquareRoot]: A1 = ???
-//  def normInf: A
+  def norm1[A1 >: A: Semigroup: Absolute]: A1             = sum.abs
+  def norm[A1 >: A: HMul.Homo: Semigroup: SquareRoot]: A1 = map(x => x *** x).sum.sqrt
+  def normInf[A1 >: A: Absolute: Ordering]: A1            = reduceLeft { (a, b) => a.abs max b.abs }
 
   def map[B](f: A => B): Vector[Size, B]
   def reduceLeft[B >: A](op: (B, A) => B): B
+
+  def sum[A1 >: A: Semigroup]: A1 = reduceLeft(_ |+| _)
 
   override def equals(obj: Any): Boolean = (this eq obj.asInstanceOf[AnyRef]) || (obj match
     case other: Vector[Size @unchecked, A @unchecked] =>
