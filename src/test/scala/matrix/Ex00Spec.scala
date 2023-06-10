@@ -51,7 +51,7 @@ class Ex00Spec extends AnyFlatSpec with Matchers:
     }
   }
 
-  it should "return the same size matrix with subtraction of elements" in {
+  "Matrix.-" should "return the same size matrix with subtraction of elements" in {
     val m1: Matrix[2, 2, Double] = Matrix {
       Vector.of(
         Vector.of(1.0, 2.0),
