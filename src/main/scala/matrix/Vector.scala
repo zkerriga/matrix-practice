@@ -1,28 +1,30 @@
 package matrix
 
-import utils.{Absolute, HMul, LinearInterpolation, Semigroup, SquareRoot}
+import math.*
+import math.aliases.*
+import math.syntax.*
 
 import scala.collection.immutable.Vector as StdVec
-import scala.compiletime.ops.int.*
+import scala.compiletime.ops.int.>
 import scala.math.Ordering.Implicits.*
 
 trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[Size > 0]):
   def apply[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Size]): A
   def head: A
 
-  infix def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C]         = map(_ *** scalar)
-  infix def +[A1 >: A: Semigroup](other: Vector[Size, A1]): Vector[Size, A1] = Vector.map2(this, other)(_ |+| _)
-  infix def dot[B, C](other: Vector[Size, B])(using HMul[A, B, C], Semigroup[C]): C =
-    Vector.map2(this, other)(_ *** _).sum
+  infix def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C]              = map(_ * scalar)
+  infix def +[B, C](other: Vector[Size, B])(using HAdd[A, B, C]): Vector[Size, C] = Vector.map2(this, other)(_ + _)
+  infix def -[B, C](other: Vector[Size, B])(using HSub[A, B, C]): Vector[Size, C] = Vector.map2(this, other)(_ - _)
+  infix def dot[B, C](other: Vector[Size, B])(using HMul[A, B, C], Add[C]): C     = Vector.map2(this, other)(_ * _).sum
 
-  def norm1[A1 >: A: Semigroup: Absolute]: A1             = sum.abs
-  def norm[A1 >: A: HMul.Homo: Semigroup: SquareRoot]: A1 = map(x => x *** x).sum.sqrt
-  def normInf[A1 >: A: Absolute: Ordering]: A1            = reduceLeft { (a, b) => a.abs max b.abs }
+  def norm1[A1 >: A: Add: Abs]: A1        = sum.abs
+  def norm[A1 >: A: Mul: Add: Sqrt]: A1   = map(x => x * x).sum.sqrt
+  def normInf[A1 >: A: Abs: Ordering]: A1 = reduceLeft { (a, b) => a.abs max b.abs }
 
   def map[B](f: A => B): Vector[Size, B]
   def reduceLeft[B >: A](op: (B, A) => B): B
 
-  def sum[A1 >: A: Semigroup]: A1 = reduceLeft(_ |+| _)
+  def sum[A1 >: A: Add]: A1 = reduceLeft(_ + _)
 
   override def equals(obj: Any): Boolean = (this eq obj.asInstanceOf[AnyRef]) || (obj match
     case other: Vector[Size @unchecked, A @unchecked] =>
@@ -100,11 +102,17 @@ object Vector:
 
   /* ADDITIONAL MATH OPERATIONS */
 
-  given [Size <: Int, A, Time](using LinearInterpolation[A, Time]): LinearInterpolation[Vector[Size, A], Time] =
-    (v1, v2, time) => map2(v1, v2)((value1, value2) => (value1, value2).interpolateBy(time))
+  given [Size <: Int, A, Time](using Interpolation[A, Time]): Interpolation[Vector[Size, A], Time] =
+    (from, to, time) => map2(from, to)((value1, value2) => (value1, value2).interpolateBy(time))
 
-  def linearCombination[N <: Int, Size <: Int, A, B, C: Semigroup](
+  def linearCombination[N <: Int, Size <: Int, A, B, C: Add](
     vectors: Vector[N, Vector[Size, A]],
     coefficients: Vector[N, B],
   )(using HMul[A, B, C]): Vector[Size, C] =
     map2(vectors, coefficients)(_ * _).reduceLeft(_ + _)
+
+  def angleCos[Size <: Int, A: Mul: Add: Sqrt, B: Mul: Add: Sqrt, C: Add: Div](
+    vA: Vector[Size, A],
+    vB: Vector[Size, B],
+  )(using HMul[A, B, C]): C =
+    (vA dot vB) / (vA.norm * vB.norm)
