@@ -72,6 +72,14 @@ object Matrix:
   type Tabulate[Weight <: Int, Height <: Int, A] =
     (y: Int, x: Int) => OnEvincedIndexes[Weight, Height, y.type, x.type, A]
 
+  /**
+   * creates a new [[Matrix]] of the passed `weight` and `height` using `f` to calculate each value by its index pair
+   * @param f
+   *   function that allows you to make calculations using an index pair having also the proof that the index pair is a
+   *   valid index pair for a matrix of a certain shape
+   * @note
+   *   uses [[Vector.tabulate]]
+   */
   def tabulate[Weight <: Int, Height <: Int, A](weight: Weight, height: Height)(
     f: Tabulate[Weight, Height, A]
   )(using Evidence[Weight > 0], Evidence[Height > 0]): Matrix[Weight, Height, A] =
@@ -96,6 +104,7 @@ object Matrix:
 
   /* ADDITIONAL MATH OPERATIONS */
 
+  /** generates [[Interpolation]] for any [[Matrix]] which type can be interpolated */
   given [Weight <: Int, Height <: Int, A, Time](using
     Interpolation[A, Time]
   ): Interpolation[Matrix[Weight, Height, A], Time] =
