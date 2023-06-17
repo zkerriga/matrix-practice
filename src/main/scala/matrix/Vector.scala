@@ -16,6 +16,12 @@ trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[S
   infix def +[B, C](other: Vector[Size, B])(using HAdd[A, B, C]): Vector[Size, C] = Vector.map2(this, other)(_ + _)
   infix def -[B, C](other: Vector[Size, B])(using HSub[A, B, C]): Vector[Size, C] = Vector.map2(this, other)(_ - _)
   infix def dot[B, C](other: Vector[Size, B])(using HMul[A, B, C], Add[C]): C     = Vector.map2(this, other)(_ * _).sum
+  infix def x[B, C](other: Vector[3, B])(using Size =:= 3, HMul[A, B, C], Sub[C]): Vector[3, C] =
+    Vector.crossProduct(
+      // using provided evidence we clarify the type of `this` from `Vector[Size, A]` to `Vector[3, A]`
+      summon[Size =:= 3].liftCo[[x] =>> Vector[x & Int, A]](this),
+      other,
+    )
 
   def norm1[A1 >: A: Add: Abs]: A1        = sum.abs
   def norm[A1 >: A: Mul: Add: Sqrt]: A1   = map(x => x * x).sum.sqrt
@@ -116,3 +122,10 @@ object Vector:
     vB: Vector[Size, B],
   )(using HMul[A, B, C]): C =
     (vA dot vB) / (vA.norm * vB.norm)
+
+  def crossProduct[A, B, C: Sub](vA: Vector[3, A], vB: Vector[3, B])(using HMul[A, B, C]): Vector[3, C] =
+    Vector.of(
+      vA(1) * vB(2) - vA(2) * vB(1),
+      vA(2) * vB(0) - vA(0) * vB(2),
+      vA(0) * vB(1) - vA(1) * vB(0),
+    )
