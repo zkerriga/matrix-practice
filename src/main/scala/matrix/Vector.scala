@@ -15,7 +15,12 @@ trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[S
   infix def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C]              = map(_ * scalar)
   infix def +[B, C](other: Vector[Size, B])(using HAdd[A, B, C]): Vector[Size, C] = Vector.map2(this, other)(_ + _)
   infix def -[B, C](other: Vector[Size, B])(using HSub[A, B, C]): Vector[Size, C] = Vector.map2(this, other)(_ - _)
-  infix def dot[B, C](other: Vector[Size, B])(using HMul[A, B, C], Add[C]): C     = Vector.map2(this, other)(_ * _).sum
+
+  /** computes the dot product of two [[Vector]]s of the same dimension */
+  infix def dot[B, C](other: Vector[Size, B])(using HMul[A, B, C], Add[C]): C =
+    Vector.map2(this, other)(_ * _).sum
+
+  /** alias for the cross product operation, see [[Vector.crossProduct]] */
   infix def x[B, C](other: Vector[3, B])(using Size =:= 3, HMul[A, B, C], Sub[C]): Vector[3, C] =
     Vector.crossProduct(
       // using provided evidence we clarify the type of `this` from `Vector[Size, A]` to `Vector[3, A]`
@@ -23,8 +28,13 @@ trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[S
       other,
     )
 
-  def norm1[A1 >: A: Add: Abs]: A1        = sum.abs
-  def norm[A1 >: A: Mul: Add: Sqrt]: A1   = map(x => x * x).sum.sqrt
+  /** 1-norm (also called the Taxicab norm or Manhattan norm) */
+  def norm1[A1 >: A: Add: Abs]: A1 = sum.abs
+
+  /** 2-norm (also called the Euclidean norm) */
+  def norm[A1 >: A: Mul: Add: Sqrt]: A1 = map(x => x * x).sum.sqrt
+
+  /** ∞-norm (also called the supremum norm) */
   def normInf[A1 >: A: Abs: Ordering]: A1 = reduceLeft { (a, b) => a.abs max b.abs }
 
   def map[B](f: A => B): Vector[Size, B]
@@ -97,6 +107,12 @@ object Vector:
   type OnEvincedIndex[Size <: Int, I <: Int, A] = Evidence[I IsIndexFor Size] ?=> A
   type Tabulate[Size <: Int, A]                 = (index: Int) => OnEvincedIndex[Size, index.type, A]
 
+  /**
+   * creates a new [[Vector]] of the passed `size` using `f` to calculate each value by its index
+   * @param f
+   *   function that allows you to make calculations using an index having also the proof that the index is a valid
+   *   index for a vector of a certain size
+   */
   def tabulate[Size <: Int, A](size: Size)(f: Tabulate[Size, A])(using Evidence[Size > 0]): Vector[Size, A] =
     Impl(size, StdVec.tabulate(size) { index => f(index)(using guaranteed) })
 
@@ -108,21 +124,25 @@ object Vector:
 
   /* ADDITIONAL MATH OPERATIONS */
 
+  /** generates [[Interpolation]] for any [[Vector]] which type can be interpolated */
   given [Size <: Int, A, Time](using Interpolation[A, Time]): Interpolation[Vector[Size, A], Time] =
     (from, to, time) => map2(from, to)((value1, value2) => (value1, value2).interpolateBy(time))
 
+  /** computes a linear combination of the [[Vector]]s provided, using the corresponding scalar coefficients */
   def linearCombination[N <: Int, Size <: Int, A, B, C: Add](
     vectors: Vector[N, Vector[Size, A]],
     coefficients: Vector[N, B],
   )(using HMul[A, B, C]): Vector[Size, C] =
     map2(vectors, coefficients)(_ * _).reduceLeft(_ + _)
 
+  /** computes the cosine of the angle between two given [[Vector]]s of the same dimension */
   def angleCos[Size <: Int, A: Mul: Add: Sqrt, B: Mul: Add: Sqrt, C: Add: Div](
     vA: Vector[Size, A],
     vB: Vector[Size, B],
   )(using HMul[A, B, C]): C =
     (vA dot vB) / (vA.norm * vB.norm)
 
+  /** computes the cross product of two 3-dimensional [[Vector]]s */
   def crossProduct[A, B, C: Sub](vA: Vector[3, A], vB: Vector[3, B])(using HMul[A, B, C]): Vector[3, C] =
     Vector.of(
       vA(1) * vB(2) - vA(2) * vB(1),
