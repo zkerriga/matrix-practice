@@ -104,6 +104,8 @@ object Vector:
     val cleanUnion = unionEvidence.liftCo[[x] =>> Vector[Size, x]]
     cleanSize.andThen(cleanUnion)(make(tuple))
 
+  def of[A](value: A): Vector[1, A] = make(value *: EmptyTuple)
+
   type OnEvincedIndex[Size <: Int, I <: Int, A] = Evidence[I IsIndexFor Size] ?=> A
   type Tabulate[Size <: Int, A]                 = (index: Int) => OnEvincedIndex[Size, index.type, A]
 
@@ -129,14 +131,14 @@ object Vector:
     (from, to, time) => map2(from, to)((value1, value2) => (value1, value2).interpolateBy(time))
 
   /** computes a linear combination of the [[Vector]]s provided, using the corresponding scalar coefficients */
-  def linearCombination[N <: Int, Size <: Int, A, B, C: Add](
+  def linearCombination[N <: Int, Size <: Int, A, B, C](
     vectors: Vector[N, Vector[Size, A]],
     coefficients: Vector[N, B],
-  )(using HMul[A, B, C]): Vector[Size, C] =
+  )(using HMul[A, B, C], Add[C]): Vector[Size, C] =
     map2(vectors, coefficients)(_ * _).reduceLeft(_ + _)
 
   /** computes the cosine of the angle between two given [[Vector]]s of the same dimension */
-  def angleCos[Size <: Int, A: Mul: Add: Sqrt, B: Mul: Add: Sqrt, C: Add: Div](
+  def angleCos[Size <: Int, A: Sqrt: Mul: Add, B: Sqrt: Mul: Add, C: Div: Add](
     vA: Vector[Size, A],
     vB: Vector[Size, B],
   )(using HMul[A, B, C]): C =

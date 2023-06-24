@@ -10,3 +10,4 @@ object HMul:
 
   given Mul[Double]               = _ * _
   given HMul[Double, Int, Double] = _ * _
+  given Mul[Int]                  = _ * _

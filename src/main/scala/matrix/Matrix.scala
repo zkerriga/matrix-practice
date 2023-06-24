@@ -13,12 +13,13 @@ trait Matrix[Weight <: Int, Height <: Int, +A](val weight: Weight, val height: H
   final def shape: (Weight, Height) = weight -> height
   final def isSquare: Boolean       = weight == height
 
-  def apply[Row <: Int & Singleton](row: Row)(using Evidence[Row IsIndexFor Height]): Vector[Weight, A]
+  def getRow[Row <: Int & Singleton](row: Row)(using Evidence[Row IsIndexFor Height]): Vector[Weight, A]
+  def getColumn[Column <: Int & Singleton](column: Column)(using Evidence[Column IsIndexFor Weight]): Vector[Height, A]
 
   def apply[Row <: Int & Singleton, Column <: Int & Singleton](row: Row, column: Column)(using
     Evidence[Row IsIndexFor Height],
     Evidence[Column IsIndexFor Weight],
-  ): A = apply[Row](row).apply[Column](column)
+  ): A = getRow[Row](row).apply[Column](column)
 
   def *[B, C](scalar: B)(using HMul[A, B, C]): Matrix[Weight, Height, C] = map(_ * scalar)
   def +[B, C](other: Matrix[Weight, Height, B])(using HAdd[A, B, C]): Matrix[Weight, Height, C] =
@@ -27,7 +28,16 @@ trait Matrix[Weight <: Int, Height <: Int, +A](val weight: Weight, val height: H
     Matrix.map2(this, other)(_ - _)
 
   def linearMap[B, C](vector: Vector[Weight, B])(using HMul[A, B, C], Add[C]): Vector[Height, C] =
-    Vector.tabulate[Height, C](height) { row => apply(row) dot vector }
+    Vector.tabulate[Height, C](height) { row => getRow(row) dot vector }
+
+  /** computes a matrix that is the multiplication of two matrices */
+  infix def x[Weight2 <: Int, B, C](
+    other: Matrix[Weight2, Weight, B]
+  )(using HMul[A, B, C], Add[C]): Matrix[Weight2, Height, C] =
+    import other.weightEvidence
+    Matrix.tabulate[Weight2, Height, C](other.weight, height) { (row, column) =>
+      this.getRow(row) dot other.getColumn(column)
+    }
 
   def map[B](f: A => B): Matrix[Weight, Height, B]
 
@@ -50,8 +60,15 @@ object Matrix:
     table: Vector[Height, Vector[Weight, A]],
   )(using Evidence[Weight > 0], Evidence[Height > 0])
       extends Matrix[Weight, Height, A](weight, height):
-    def apply[Row <: Int & Singleton](row: Row)(using Evidence[Row IsIndexFor Height]): Vector[Weight, A] =
+    def getRow[Row <: Int & Singleton](row: Row)(using Evidence[Row IsIndexFor Height]): Vector[Weight, A] =
       table.apply[Row](row)
+
+    def getColumn[Column <: Int & Singleton](
+      column: Column
+    )(using Evidence[Column IsIndexFor Weight]): Vector[Height, A] =
+      Vector.tabulate[Height, A](height) { row =>
+        getRow(row).apply[Column](column)
+      }
 
     def map[B](f: A => B): Matrix[Weight, Height, B] =
       Impl(weight, height, table.map(_.map(f)))
