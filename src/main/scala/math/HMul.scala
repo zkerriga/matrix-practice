@@ -8,4 +8,7 @@ object HMul:
 
   extension [A](a: A) infix def *[B, C](b: B)(using hm: HMul[A, B, C]): C = hm.product(a, b)
 
-  given Mul[Double] = _ * _
+  given Mul[Double]               = _ * _
+  given HMul[Double, Int, Double] = _ * _
+  given Mul[Int]                  = _ * _
+  given HMul[Int, Double, Double] = _ * _

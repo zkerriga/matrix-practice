@@ -8,3 +8,4 @@ trait Abs[A]:
 
 object Abs:
   given Abs[Double] = scala.math.abs
+  given Abs[Int]    = scala.math.abs
