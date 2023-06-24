@@ -46,7 +46,7 @@ trait Matrix[Height <: Int, Weight <: Int, +A](val height: Height, val weight: W
       (shape == other.shape) && (0 until height).forall { row =>
         given Evidence[row.type IsIndexFor Height] = guaranteed
         (0 until weight).forall { column =>
-          given Evidence[x.type IsIndexFor Weight] = guaranteed
+          given Evidence[column.type IsIndexFor Weight] = guaranteed
           apply(row, column) == other.apply(row, column)
         }
       }
