@@ -13,16 +13,21 @@ trait Matrix[Weight <: Int, Height <: Int, +A](val weight: Weight, val height: H
   final def shape: (Weight, Height) = weight -> height
   final def isSquare: Boolean       = weight == height
 
+  def apply[Row <: Int & Singleton](row: Row)(using Evidence[Row IsIndexFor Height]): Vector[Weight, A]
+
   def apply[Row <: Int & Singleton, Column <: Int & Singleton](row: Row, column: Column)(using
     Evidence[Row IsIndexFor Height],
     Evidence[Column IsIndexFor Weight],
-  ): A
+  ): A = apply[Row](row).apply[Column](column)
 
   def *[B, C](scalar: B)(using HMul[A, B, C]): Matrix[Weight, Height, C] = map(_ * scalar)
   def +[B, C](other: Matrix[Weight, Height, B])(using HAdd[A, B, C]): Matrix[Weight, Height, C] =
     Matrix.map2(this, other)(_ + _)
   def -[B, C](other: Matrix[Weight, Height, B])(using HSub[A, B, C]): Matrix[Weight, Height, C] =
     Matrix.map2(this, other)(_ - _)
+
+  def linearMap[B, C](vector: Vector[Weight, B])(using HMul[A, B, C], Add[C]): Vector[Height, C] =
+    Vector.tabulate[Height, C](height) { row => apply(row) dot vector }
 
   def map[B](f: A => B): Matrix[Weight, Height, B]
 
@@ -45,10 +50,8 @@ object Matrix:
     table: Vector[Height, Vector[Weight, A]],
   )(using Evidence[Weight > 0], Evidence[Height > 0])
       extends Matrix[Weight, Height, A](weight, height):
-    def apply[Row <: Int & Singleton, Column <: Int & Singleton](row: Row, column: Column)(using
-      Evidence[Row IsIndexFor Height],
-      Evidence[Column IsIndexFor Weight],
-    ): A = table.apply[Row](row).apply[Column](column)
+    def apply[Row <: Int & Singleton](row: Row)(using Evidence[Row IsIndexFor Height]): Vector[Weight, A] =
+      table.apply[Row](row)
 
     def map[B](f: A => B): Matrix[Weight, Height, B] =
       Impl(weight, height, table.map(_.map(f)))
