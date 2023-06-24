@@ -9,3 +9,4 @@ object HSub:
   extension [A](a: A) infix def -[B, C](b: B)(using hs: HSub[A, B, C]): C = hs.subtract(a, b)
 
   given Sub[Double] = _ - _
+  given Sub[Int]    = _ - _

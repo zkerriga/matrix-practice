@@ -8,3 +8,4 @@ object One:
   def of[A](using one: One[A]): A = one.value
 
   given One[Double] = One(1.0)
+  given One[Int]    = One(1)

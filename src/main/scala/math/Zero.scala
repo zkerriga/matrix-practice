@@ -8,3 +8,4 @@ object Zero:
   def of[A](using zero: Zero[A]): A = zero.value
 
   given Zero[Double] = Zero(0.0)
+  given Zero[Int]    = Zero(0)
