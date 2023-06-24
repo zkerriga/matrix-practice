@@ -93,6 +93,12 @@ object Matrix:
       },
     )
 
+  def diagonal[Size <: Int, A: Zero](diagonal: A)(using ValueOf[Size], Evidence[Size > 0]): Matrix[Size, Size, A] =
+    tabulate[Size, Size, A](valueOf, valueOf) { (y, x) => if y == x then diagonal else Zero.of[A] }
+
+  def identity[Size <: Int, A: One: Zero](using ValueOf[Size], Evidence[Size > 0]): Matrix[Size, Size, A] =
+    diagonal(One.of[A])
+
   def map2[Weight <: Int, Height <: Int, A, B, C](
     m1: Matrix[Weight, Height, A],
     m2: Matrix[Weight, Height, B],
