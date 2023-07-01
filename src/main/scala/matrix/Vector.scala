@@ -118,6 +118,16 @@ object Vector:
   def tabulate[Size <: Int, A](size: Size)(f: Tabulate[Size, A])(using Evidence[Size > 0]): Vector[Size, A] =
     Impl(size, StdVec.tabulate(size) { index => f(index)(using guaranteed) })
 
+  /**
+   * similar to [[tabulate]], but instead of creating a [[Vector]] it immediately reduces all the values
+   * @param op
+   *   function for reducing the elements obtained from `f`
+   */
+  def tabulateReduce[Size <: Int, A](size: Size, op: (A, A) => A)(f: Tabulate[Size, A])(using Evidence[Size > 0]): A =
+    (1 until size).foldLeft[A](f(0)(using guaranteed)) { (acc, index) =>
+      op(acc, f(index)(using guaranteed))
+    }
+
   def map2[Size <: Int, A, B, C](v1: Vector[Size, A], v2: Vector[Size, B])(
     f: (A, B) => C
   ): Vector[Size, C] =
