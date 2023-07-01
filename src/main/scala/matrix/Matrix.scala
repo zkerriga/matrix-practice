@@ -39,6 +39,18 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
       this.getRow(row) dot other.getColumn(column)
     }
 
+  def trace[A1 >: A: Add](using squareEvidence: Height =:= Width): A1 =
+    Vector.tabulateReduce[Height, A1](height, _ + _) { index =>
+      /* using the evidence that `Height` is `Width` we prove that
+       * provided by tabulation `Height index evidence` is the same as `Width index evidence`
+       */
+      given Evidence[index.type IsIndexFor Width] =
+        squareEvidence
+          .liftCo[[size] =>> Evidence[index.type IsIndexFor size & Int]]
+          .apply(summon[Evidence[index.type IsIndexFor Height]])
+      apply(index, index)
+    }
+
   def map[B](f: A => B): Matrix[Height, Width, B]
 
   override def equals(obj: Any): Boolean = (this eq obj.asInstanceOf[AnyRef]) || (obj match
