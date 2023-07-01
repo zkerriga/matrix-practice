@@ -51,6 +51,11 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
       apply(index, index)
     }
 
+  def transpose: Matrix[Width, Height, A] =
+    Matrix.tabulate[Width, Height, A](width, height) { (column, row) =>
+      apply(row, column)
+    }
+
   def map[B](f: A => B): Matrix[Height, Width, B]
 
   override def equals(obj: Any): Boolean = (this eq obj.asInstanceOf[AnyRef]) || (obj match
