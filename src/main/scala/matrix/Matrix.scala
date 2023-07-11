@@ -13,6 +13,9 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
   final def shape: (Height, Width) = height -> width
   final def isSquare: Boolean      = height == width
 
+  // todo: temporary
+  def toVector: Vector[Height, Vector[Width, A]]
+
   def getRow[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Height]): Vector[Width, A]
   def getColumn[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Width]): Vector[Height, A]
 
@@ -83,6 +86,9 @@ object Matrix:
     def getColumn[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Width]): Vector[Height, A] =
       Vector.tabulate[Height, A](height) { row => getRow(row).apply[I](index) }
 
+    // todo: temporary
+    def toVector: Vector[Height, Vector[Width, A]] = table
+
     def map[B](f: A => B): Matrix[Height, Width, B] =
       Impl(height, width, table.map(_.map(f)))
 
@@ -91,14 +97,11 @@ object Matrix:
 
   /* CONSTRUCTORS */
 
-  def apply[Height <: Int, Width <: Int, A](table: Vector[Height, Vector[Width, A]])(using
-    ValueOf[Height],
-    ValueOf[Width],
-  ): Matrix[Height, Width, A] =
+  def apply[Height <: Int, Width <: Int, A](table: Vector[Height, Vector[Width, A]]): Matrix[Height, Width, A] =
     val row = table.head
     import row.sizeEvidence
     import table.sizeEvidence
-    Impl(valueOf, valueOf, table)
+    Impl(table.size, row.size, table)
 
   type OnEvincedIndexes[Height <: Int, Width <: Int, Row <: Int, Column <: Int, A] =
     (Evidence[Row IsIndexFor Height], Evidence[Column IsIndexFor Width]) ?=> A
@@ -148,3 +151,67 @@ object Matrix:
     Interpolation[A, Time]
   ): Interpolation[Matrix[Height, Width, A], Time] =
     (from, to, time) => map2(from, to)((value1, value2) => (value1, value2).interpolateBy(time))
+
+  def reducedRowEchelon[Height <: Int, Width <: Int](matrix: Matrix[Height, Width, Double]) =
+    matrix.shape match
+      case (1, 1) =>
+        Matrix[1, 1, Double] {
+          Vector.of(
+            Vector.of(1.0)
+          )
+        }
+      case (1, 2) =>
+        val m = matrix.asInstanceOf[Matrix[1, 2, Double]]
+        Matrix[1, 2, Double] {
+          Vector.of(
+            Vector.of(1.0, m(0, 1) / m(0, 0))
+          )
+        }
+      case (2, 1) =>
+        Matrix[2, 1, Double] {
+          Vector.of(
+            Vector.of(1.0),
+            Vector.of(0.0),
+          )
+        }
+      case _ =>
+        given he: Evidence[Height > 1] = guaranteed
+        given we: Evidence[Width > 1]  = guaranteed
+
+        val vMatrix: Vector[Height, Vector[Width, Double]] = matrix.toVector
+        val baseRow: Vector[Width, Double]                 = vMatrix.head
+
+        val baseLead: Double                    = baseRow.head
+        val baseTail: Vector[Width - 1, Double] = baseRow.tail
+
+        val restMatrix: Vector[Height - 1, Vector[Width, Double]] = vMatrix.tail
+
+        val processed: Vector[Height - 1, Vector[Width - 1, Double]] =
+          restMatrix.map { row =>
+            val rowLead: Double                    = row.head
+            val rowTail: Vector[Width - 1, Double] = row.tail
+
+            val coefficient: Double = rowLead / baseLead
+
+            Vector.map2(rowTail, baseTail) { (rowElement, baseElement) =>
+              rowElement - baseElement * coefficient
+            }
+          }
+
+        Matrix[Height - 1, Width - 1, Double] { processed }
+
+@main def test = {
+  val matrix: Matrix[3, 4, Double] = Matrix {
+    Vector.of(
+      Vector.of(1.0, 3.0, 1.0, 9.0),
+      Vector.of(1.0, 1.0, -1.0, 1.0),
+      Vector.of(3.0, 11.0, 5.0, 35.0),
+    )
+  }
+
+  val result1 = Matrix.reducedRowEchelon(matrix)
+  println(result1)
+
+  val result2 = Matrix.reducedRowEchelon(result1)
+  println(result2)
+}
