@@ -57,7 +57,7 @@ def moveNonZeroLeadRowToTheTop(matrix: MyVector[MyVector[A]]): MyVector[MyVector
     }
 
 enum RecursionDownResult:
-  case ZeroColumnLeft(maybeMatrixOnRight: Option[RecursionDownResult])
+  case ZeroColumnLeft(height: Int, maybeMatrixOnRight: Option[RecursionDownResult])
   case DownSubtractDivision(
     headLead: A,
     maybeHeadTail: Option[MyVector[A]],
@@ -71,10 +71,12 @@ def startFunction(matrix: MyVector[MyVector[A]]): RecursionDownResult = {
   val (headVectorLead, maybeHeadVectorTail) = split(headVector)
 
   if headVectorLead == 0.0f then
-    RecursionDownResult.ZeroColumnLeft(combineOptions(maybeHeadVectorTail, maybeTailVectors) {
-      (headVectorTail, tailVectors) =>
+    RecursionDownResult.ZeroColumnLeft(
+      matrix.length,
+      combineOptions(maybeHeadVectorTail, maybeTailVectors) { (headVectorTail, tailVectors) =>
         startFunction(headVectorTail :: tailVectors) // todo: smaller matrix -> start again
-    })
+      },
+    )
   else
     // todo: size here is less by 1
     val processSubtractDivision: Option[MyVector[MyVector[A]]] = maybeTailVectors.flatMap { tailVectors =>
@@ -95,6 +97,40 @@ def startFunction(matrix: MyVector[MyVector[A]]): RecursionDownResult = {
     )
 }
 
+def composeResult(result: RecursionDownResult): List[List[A]] = {
+  result match
+    case RecursionDownResult.ZeroColumnLeft(height, maybeMatrixOnRight) =>
+      maybeMatrixOnRight match
+        case Some(rightMatrixResult) => composeResult(rightMatrixResult).map(0.0f :: _)
+        case None                    => List.fill(height)(List(0.0f))
+
+    case RecursionDownResult.DownSubtractDivision(headLead, maybeHeadTail, maybeMatrixOnDownRight) =>
+      val headVector = headLead :: maybeHeadTail.toList.flatten
+      maybeMatrixOnDownRight match
+        case Some(downRightMatrixResult) =>
+          val downRightMatrix = composeResult(downRightMatrixResult)
+          headVector :: downRightMatrix.map(0.0f :: _)
+        case None => List(headVector)
+}
+
+def printMatrix(matrix: List[List[Float]]): Unit = {
+  // Get the number of rows and columns in the matrix
+  val numRows = matrix.length
+  val numCols = if (numRows > 0) matrix.head.length else 0
+
+  // Find the maximum length of the elements in the matrix
+  val maxElementLength = matrix.flatten.map(_.toString.length).max
+
+  // Print the matrix
+  for (row <- matrix) {
+    for (element <- row) {
+      val paddedElement = element.toString.padTo(maxElementLength, ' ')
+      print(s"$paddedElement ")
+    }
+    println()
+  }
+}
+
 @main def test = {
   println("start!")
 
@@ -109,5 +145,8 @@ def startFunction(matrix: MyVector[MyVector[A]]): RecursionDownResult = {
     List(1, 3, 5, 9),
     List(1, 1, -1, 1),
   )
-  println(startFunction(matrix2))
+
+  val result   = startFunction(matrix2)
+  val composed = composeResult(result)
+  printMatrix(composed)
 }
