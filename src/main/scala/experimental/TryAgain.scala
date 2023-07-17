@@ -31,6 +31,9 @@ def combineOptions[A, B, C](optionA: Option[A], optionB: Option[B])(func: (A, B)
 def map2(a: MyVector[A], b: MyVector[A])(f: (A, A) => A): MyVector[A] =
   a.zip(b).map { case (aX, bX) => f(aX, bX) }
 
+def desplit[A](lead: A, tail: Option[MyVector[A]]): MyVector[A] =
+  lead :: tail.getOrElse(Nil)
+
 def split[A](vector: MyVector[A]): (A, Option[MyVector[A]]) =
   vector match
     case element :: Nil        => element -> None
@@ -116,6 +119,31 @@ def composeResult(result: RecursionDownResult): List[List[A]] = {
         case None => List(headVector)
 }
 
+case class Ready(downRightMatrix: MyVector[MyVector[A]], toBeSubtractedAbove: List[List[MyVector[A]]])
+
+def upDecomposition(result: RecursionDownResult): Ready = {
+  result match
+    case RecursionDownResult.ZeroColumnLeft(height, maybeMatrixOnRightResult) =>
+      maybeMatrixOnRightResult match
+        case Some(maybeMatrixOnRightResult) =>
+          val Ready(rightMatrix, toBeSubtractedAbove) = upDecomposition(maybeMatrixOnRightResult)
+          Ready(rightMatrix.map(0.0f :: _), toBeSubtractedAbove)
+        case None => Ready(List.fill(height)(List(0.0f)), List.empty)
+
+    case RecursionDownResult.DownSubtractDivision(headLead, maybeHeadTail, maybeMatrixOnDownRight) =>
+      maybeMatrixOnDownRight match
+        case Some(downRightMatrixResult) =>
+          val Ready(downRightMatrix, toBeSubtracted) = upDecomposition(downRightMatrixResult)
+          val maybeDividedTail                       = maybeHeadTail.map(_.map(_ / headLead))
+          val headVector                             = desplit[A](1.0f, maybeDividedTail)
+          val zeroedDownMatrix                       = downRightMatrix.map(0.0f :: _)
+          Ready(headVector :: zeroedDownMatrix, toBeSubtracted) // ??? // todo: see the paper
+        case None =>
+          val maybeDividedTail = maybeHeadTail.map(_.map(_ / headLead))
+          val downRight        = List(desplit[A](1.0f, maybeDividedTail))
+          Ready(downRight, maybeDividedTail.toList.map(dividedTail => List(dividedTail)))
+}
+
 def printMatrix(matrix: List[List[A]]): Unit = {
   // Get the number of rows and columns in the matrix
   val numRows = matrix.length
@@ -155,14 +183,32 @@ def printMatrix(matrix: List[List[A]]): Unit = {
     List(0, 0, 0, 0, 1, 2),
   )
 
+  val matrix4: MyVector[MyVector[A]] = List(
+    List(1, 2, 3, 4, 5, 6),
+    List(0, 0, 1, 2, 3, 4),
+    List(0, 0, 0, 0, 0, 0),
+  )
+
+  val matrix5: MyVector[MyVector[A]] = List(
+    List(0, 0, 0, 0),
+    List(0, 0, 0, 0),
+    List(0, 0, 0, 0),
+  )
+
   def process(matrix: MyVector[MyVector[A]]): Unit = {
     val result = startFunction(matrix)
     println(result)
     val composed = composeResult(result)
     printMatrix(composed)
+
+    val decomposed = upDecomposition(result)
+    println(decomposed)
+    printMatrix(decomposed.downRightMatrix)
   }
 
   process(matrix1)
   process(matrix2)
   process(matrix3)
+  process(matrix4)
+  process(matrix5)
 }
