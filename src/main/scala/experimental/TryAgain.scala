@@ -73,8 +73,11 @@ def startFunction(matrix: MyVector[MyVector[A]]): RecursionDownResult = {
   if headVectorLead == 0.0f then
     RecursionDownResult.ZeroColumnLeft(
       matrix.length,
-      combineOptions(maybeHeadVectorTail, maybeTailVectors) { (headVectorTail, tailVectors) =>
-        startFunction(headVectorTail :: tailVectors) // todo: smaller matrix -> start again
+      maybeHeadVectorTail.map { headVectorTail =>
+        // todo: right matrix -> go again
+        startFunction(maybeTailVectors.fold(List(headVectorTail)) { tailVectors =>
+          headVectorTail :: tailVectors.map(_.tail)
+        })
       },
     )
   else
@@ -113,7 +116,7 @@ def composeResult(result: RecursionDownResult): List[List[A]] = {
         case None => List(headVector)
 }
 
-def printMatrix(matrix: List[List[Float]]): Unit = {
+def printMatrix(matrix: List[List[A]]): Unit = {
   // Get the number of rows and columns in the matrix
   val numRows = matrix.length
   val numCols = if (numRows > 0) matrix.head.length else 0
@@ -146,7 +149,20 @@ def printMatrix(matrix: List[List[Float]]): Unit = {
     List(1, 1, -1, 1),
   )
 
-  val result   = startFunction(matrix2)
-  val composed = composeResult(result)
-  printMatrix(composed)
+  val matrix3: MyVector[MyVector[A]] = List(
+    List(1, 2, 3, 4, 5, 6),
+    List(0, 0, 1, 2, 3, 4),
+    List(0, 0, 0, 0, 1, 2),
+  )
+
+  def process(matrix: MyVector[MyVector[A]]): Unit = {
+    val result = startFunction(matrix)
+    println(result)
+    val composed = composeResult(result)
+    printMatrix(composed)
+  }
+
+  process(matrix1)
+  process(matrix2)
+  process(matrix3)
 }
