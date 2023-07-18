@@ -12,7 +12,6 @@ import scala.math.Ordering.Implicits.*
 trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[Size > 0]):
   def apply[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Size]): A
   def head: A = apply(0)
-  def tail(using Evidence[Size > 1]): Vector[Size - 1, A]
 
   infix def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C]              = map(_ * scalar)
   infix def +[B, C](other: Vector[Size, B])(using HAdd[A, B, C]): Vector[Size, C] = Vector.map2(this, other)(_ + _)
@@ -58,9 +57,6 @@ object Vector:
       extends Vector[Size, A](size):
     def apply[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Size]): A =
       vec(index)
-
-    def tail(using Evidence[Size > 1]): Vector[Size - 1, A] =
-      Impl((size - 1).asInstanceOf[Size - 1], vec.tail)
 
     def map[B](f: A => B): Vector[Size, B] =
       Impl(size, vec.map(f))
