@@ -150,7 +150,7 @@ def backSubtraction(
   vectorParts: List[Option[MyVector[A]]] = List.empty,
 ): List[Option[MyVector[A]]] =
   toBeSubtracted match
-    case Nil => vectorParts
+    case Nil => Some(mainToSplit) :: vectorParts
     case currentToSubtract :: othersToBeSubtracted =>
       val splitPattern                                   = currentToSubtract.head
       val (maybeRest, localLead, maybeNewPartToSubtract) = sliceRightForSubtract(mainToSplit, splitPattern)
@@ -207,7 +207,8 @@ def upDecomposition(result: RecursionDownResult): Ready = {
           val zeroedDownMatrix = downRightMatrix.map(Zero :: _)
           Ready(
             headVector :: zeroedDownMatrix,
-            toBeSubtracted :+ maybeDividedSubtractedTailPats,
+            if maybeDividedSubtractedTailPats.nonEmpty then toBeSubtracted :+ maybeDividedSubtractedTailPats
+            else toBeSubtracted,
           )
         case None =>
           val maybeDividedTail = maybeHeadTail.map(_.map(_ / headLead))
@@ -236,7 +237,7 @@ def printMatrix(matrix: List[List[A]]): Unit = {
 @main def test = {
   println("start!")
 
-  given Conversion[Int, A] = int => BigDecimal(int, new MathContext(8, RoundingMode.FLOOR))
+  given Conversion[Int, A] = int => BigDecimal(int, new MathContext(10, RoundingMode.FLOOR))
 
   val matrix1: MyVector[MyVector[A]] = List(
     List(0, 2, 3, 4),
@@ -268,6 +269,12 @@ def printMatrix(matrix: List[List[A]]): Unit = {
     List(0, 0, 0, 0),
   )
 
+  val matrix6: MyVector[MyVector[A]] = List(
+    List(1, 2, 3, 4, 5, 6, 7, 8, 9),
+    List(0, 0, 0, 1, 2, 3, 4, 5, 6),
+    List(0, 0, 0, 0, 0, 0, 1, 2, 3),
+  )
+
   def process(matrix: MyVector[MyVector[A]]): Unit = {
     val result = startFunction(matrix)
     println(result)
@@ -284,4 +291,66 @@ def printMatrix(matrix: List[List[A]]): Unit = {
   process(matrix3)
   process(matrix4)
   process(matrix5)
+  process(matrix6)
+
+  val randomMatrix1: MyVector[MyVector[A]] = List(
+    List(4, 19, 0, 1),
+    List(42, 4, -5, 0),
+    List(0, 1, -9, 20),
+  )
+  // the answer is Identity + [-0.2736, 0.1102, -2.20997]
+  process(randomMatrix1)
+
+  val randomMatrix2: MyVector[MyVector[A]] = List(
+    List(-1, -2, -3, -4, -5, -6),
+    List(-1, -2, 1, 2, 3, 4),
+    List(5, 6, 7, 8, 9, 10),
+    List(-5, -6, -7, -8, -9, -10),
+  )
+  /* the answer is:
+	1	0	0	-0.5	-1	-1.5
+	0	1	0	0	0	0
+	0	0	1	1.5	2	2.5
+	0	0	0	0	0	0
+   */
+  process(randomMatrix2)
+
+  val randomMatrix3: MyVector[MyVector[A]] = List(
+    List(2, 4, -2, 6),
+    List(1, 2, -1, 3),
+    List(3, 2, 1, 11),
+  )
+  /* the answer is:
+	[ 1  0  1 |  4 ]
+    [ 0  1 -1 |  -0.5 ]
+    [ 0  0  0 |  0 ]
+   */
+  process(randomMatrix3)
+
+  val randomMatrix4: MyVector[MyVector[A]] = List( // todo: figure out why failed
+    List(2, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11),
+    List(12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22),
+    List(23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33),
+    List(34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44),
+    List(45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55),
+    List(56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66),
+    List(67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77),
+    List(78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88),
+    List(89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99),
+    List(100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110),
+  )
+  /* the answer is:
+    X1	X2	X3	X4	X5	X6	X7	X8	X9	X10	b
+    1	0	0	-1/3	-2/3	-1	-4/3	-5/3	-2	-7/3	-8/3
+    0	1	0	-1/3	-2/3	-1	-4/3	-5/3	-2	-7/3	-8/3
+    0	0	1	5/3	7/3	3	11/3	13/3	5	17/3	19/3
+    0	0	0	0	0	0	0	0	0	0	0
+    0	0	0	0	0	0	0	0	0	0	0
+    0	0	0	0	0	0	0	0	0	0	0
+    0	0	0	0	0	0	0	0	0	0	0
+    0	0	0	0	0	0	0	0	0	0	0
+    0	0	0	0	0	0	0	0	0	0	0
+    0	0	0	0	0	0	0	0	0	0	0
+   */
+  process(randomMatrix4)
 }
