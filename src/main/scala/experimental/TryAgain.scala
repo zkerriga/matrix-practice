@@ -75,68 +75,6 @@ def moveNonZeroLeadRowToTheTop(matrix: MyVector[MyVector[A]]): MyVector[MyVector
       moveNonZeroLeadRowToTheTopInternal(tailVectors, List(headVector))
     }
 
-enum RecursionDownResult:
-  case ZeroColumnLeft(height: Int, maybeMatrixOnRight: Option[RecursionDownResult])
-  case DownSubtractDivision(
-    headLead: A,
-    maybeHeadTail: Option[MyVector[A]],
-    maybeMatrixOnDownRight: Option[RecursionDownResult],
-  )
-
-def startFunction(matrix: MyVector[MyVector[A]]): RecursionDownResult = {
-  val swappedMatrix = moveNonZeroLeadRowToTheTop(matrix)
-
-  val (headVector, maybeTailVectors)        = split(swappedMatrix)
-  val (headVectorLead, maybeHeadVectorTail) = split(headVector)
-
-  if headVectorLead == Zero then
-    RecursionDownResult.ZeroColumnLeft(
-      matrix.length,
-      maybeHeadVectorTail.map { headVectorTail =>
-        // todo: right matrix -> go again
-        startFunction(maybeTailVectors.fold(List(headVectorTail)) { tailVectors =>
-          headVectorTail :: tailVectors.map(_.tail)
-        })
-      },
-    )
-  else
-    // todo: size here is less by 1
-    val processSubtractDivision: Option[MyVector[MyVector[A]]] = maybeTailVectors.flatMap { tailVectors =>
-      tailVectors.traverse { tailVectorsRow =>
-        val (rowLead, maybeRowTail) = split(tailVectorsRow)
-        if rowLead == Zero then maybeRowTail
-        else
-          val coefficient = rowLead / headVectorLead
-          combineOptions(maybeHeadVectorTail, maybeRowTail) { (headVectorTail, rowTail) =>
-            map2(headVectorTail, rowTail)((baseX, rowX) => rowX - baseX * coefficient)
-          }
-      }
-    }
-    RecursionDownResult.DownSubtractDivision(
-      headLead = headVectorLead,
-      maybeHeadTail = maybeHeadVectorTail,
-      maybeMatrixOnDownRight = processSubtractDivision.map(smallerMatrix => startFunction(smallerMatrix)),
-    )
-}
-
-def composeResult(result: RecursionDownResult): List[List[A]] = {
-  result match
-    case RecursionDownResult.ZeroColumnLeft(height, maybeMatrixOnRight) =>
-      maybeMatrixOnRight match
-        case Some(rightMatrixResult) => composeResult(rightMatrixResult).map(Zero :: _)
-        case None                    => List.fill(height)(List(Zero))
-
-    case RecursionDownResult.DownSubtractDivision(headLead, maybeHeadTail, maybeMatrixOnDownRight) =>
-      val headVector = headLead :: maybeHeadTail.toList.flatten
-      maybeMatrixOnDownRight match
-        case Some(downRightMatrixResult) =>
-          val downRightMatrix = composeResult(downRightMatrixResult)
-          headVector :: downRightMatrix.map(Zero :: _)
-        case None => List(headVector)
-}
-
-case class Ready(downRightMatrix: MyVector[MyVector[A]], toBeSubtractedAbove: List[List[Option[MyVector[A]]]])
-
 def sliceRightForSubtract(
   vector: MyVector[A],
   partToSubtract: Option[MyVector[A]],
@@ -151,80 +89,6 @@ def sliceRightForSubtract(
       val localLead :: subtractionPart = vector.takeRight(vectorToSubtract.length + 1)
       val maybeRest                    = vector.dropRight(vectorToSubtract.length + 1)
       (Option.when(maybeRest.nonEmpty)(maybeRest), localLead, Some(subtractionPart))
-
-@tailrec
-def backSubtraction(
-  toBeSubtracted: List[List[Option[MyVector[A]]]],
-  mainToSplit: MyVector[A],
-  vectorParts: List[Option[MyVector[A]]] = List.empty,
-): List[Option[MyVector[A]]] =
-  toBeSubtracted match
-    case Nil => Some(mainToSplit) :: vectorParts
-    case currentToSubtract :: othersToBeSubtracted =>
-      val splitPattern                                   = currentToSubtract.head
-      val (maybeRest, localLead, maybeNewPartToSubtract) = sliceRightForSubtract(mainToSplit, splitPattern)
-
-      val allVectorPartsToBeSubtracted = maybeNewPartToSubtract :: vectorParts
-      val subtractedParts = lmap2[Option[MyVector[A]]](allVectorPartsToBeSubtracted, currentToSubtract) {
-        (maybeHeadVector, maybeToSubtractVector) =>
-          combineOptions(maybeHeadVector, maybeToSubtractVector) { (headVector, toSubtractVector) =>
-            map2(headVector, toSubtractVector) { (headX, toSubtractX) =>
-              headX - toSubtractX * localLead
-            }
-          }
-      }
-      maybeRest match
-        case Some(restVector) =>
-          backSubtraction(
-            othersToBeSubtracted,
-            restVector,
-            subtractedParts,
-          )
-        case None =>
-          maybeRest :: subtractedParts
-
-def upDecomposition(result: RecursionDownResult): Ready = {
-  result match
-    case RecursionDownResult.ZeroColumnLeft(height, maybeMatrixOnRightResult) =>
-      maybeMatrixOnRightResult match
-        case Some(maybeMatrixOnRightResult) =>
-          val Ready(rightMatrix, toBeSubtractedAbove) = upDecomposition(maybeMatrixOnRightResult)
-          Ready(rightMatrix.map(Zero :: _), toBeSubtractedAbove)
-        case None => Ready(List.fill(height)(List(Zero)), List.empty)
-
-    case RecursionDownResult.DownSubtractDivision(headLead, maybeHeadTail, maybeMatrixOnDownRight) =>
-      maybeMatrixOnDownRight match
-        case Some(downRightMatrixResult) =>
-          val Ready(downRightMatrix, toBeSubtracted) = upDecomposition(downRightMatrixResult)
-
-          val subtractedTailParts: List[Option[MyVector[A]]] = maybeHeadTail
-            .map { headVectorTail =>
-              backSubtraction(toBeSubtracted, headVectorTail)
-            }.getOrElse(Nil)
-
-          val maybeDividedSubtractedTailPats: List[Option[MyVector[A]]] =
-            subtractedTailParts.map(_.map(_.map(_ / headLead)))
-
-          val composedDividedSubtractedTail: Option[MyVector[A]] = {
-            val list = maybeDividedSubtractedTailPats
-              .flatMap { maybePart =>
-                Zero :: maybePart.getOrElse(Nil)
-              }.drop(1)
-            Option.when(list.nonEmpty)(list)
-          }
-          val headVector       = desplit[A](One, composedDividedSubtractedTail)
-          val zeroedDownMatrix = downRightMatrix.map(Zero :: _)
-          Ready(
-            headVector :: zeroedDownMatrix,
-            if maybeDividedSubtractedTailPats.nonEmpty then toBeSubtracted :+ maybeDividedSubtractedTailPats
-            else toBeSubtracted,
-          )
-
-        case None =>
-          val maybeDividedTail = maybeHeadTail.map(_.map(_ / headLead))
-          val downRight        = List(desplit[A](One, maybeDividedTail))
-          Ready(downRight, List(List(maybeDividedTail)))
-}
 
 def printMatrix(matrix: List[List[A]]): Unit = {
   // Get the number of rows and columns in the matrix
@@ -244,151 +108,140 @@ def printMatrix(matrix: List[List[A]]): Unit = {
   }
 }
 
-//
-//
-//
-//
-//
-//
-//
-//
+def moveNonZeroLeadRowToTop2(matrix: MyVector[MyVector[A]]): MyVector[MyVector[A]] = {
+  // todo: do maybe slices and finding the index to swap
+  moveNonZeroLeadRowToTheTop(matrix)
+}
 
-object Upgrade {
-  def moveNonZeroLeadRowToTop2(matrix: MyVector[MyVector[A]]): MyVector[MyVector[A]] = {
-    // todo: do maybe slices and finding the index to swap
-    moveNonZeroLeadRowToTheTop(matrix)
+type NonEmptyList[+A] = List[A]
+
+case class SmallerResult(
+  smallerMatrix: MyVector[MyVector[A]],
+  toBeSubtractedAbove: List[NonEmptyList[Option[MyVector[A]]]],
+)
+
+def onZeroColumn(height: Int, maybeRightMatrixToProcess: Option[MyVector[MyVector[A]]]): SmallerResult =
+  maybeRightMatrixToProcess match
+    case Some(rightMatrixToProcess) =>
+      val SmallerResult(rightMatrix, toBeSubtractedAbove) = reducedRecursive(rightMatrixToProcess)
+      SmallerResult(rightMatrix.map(Zero :: _), toBeSubtractedAbove)
+    case None =>
+      SmallerResult(List.tabulate(height)(_ => List(Zero)), List.empty)
+
+def dropZeroColumn(
+  headVectorTail: MyVector[A],
+  maybeTailMatrix: Option[MyVector[MyVector[A]]],
+): MyVector[MyVector[A]] =
+  desplit(
+    headVectorTail,
+    maybeTailMatrix.map(_.map(_.tail)),
+  ) // todo: it should be guaranteed, that if we have headVectorTail we can do _.tail operation
+
+def subtractBy(coefficient: A)(x: A, base: A): A =
+  x - base * coefficient
+
+def subtractDown(
+  headVectorLead: A,
+  maybeHeadVectorTail: Option[MyVector[A]],
+  maybeTailMatrix: Option[MyVector[MyVector[A]]],
+): Option[MyVector[MyVector[A]]] =
+  maybeTailMatrix.flatMap { tailMatrix =>
+    tailMatrix.traverse { tailMatrixRow =>
+      val (rowLead, maybeRowTail) = split(tailMatrixRow)
+      if rowLead == Zero then maybeRowTail
+      else
+        combineOptions(maybeHeadVectorTail, maybeRowTail) { (headVectorTail, rowTail) =>
+          map2(rowTail, headVectorTail)(subtractBy(rowLead / headVectorLead))
+        }
+    }
   }
 
-  type NonEmptyList[+A] = List[A]
+@tailrec
+def subtractBack(
+  toSubtract: List[NonEmptyList[Option[MyVector[A]]]],
+  vector: MyVector[A],
+  vectorParts: List[Option[MyVector[A]]] = List.empty,
+): NonEmptyList[Option[MyVector[A]]] = {
+  toSubtract match
+    case Nil => Some(vector) :: vectorParts
+    case currentToSubtract :: othersToSubtract =>
+      val splitPattern                                   = currentToSubtract.head
+      val (maybeRest, localLead, maybeNewPartToSubtract) = sliceRightForSubtract(vector, splitPattern)
 
-  case class SmallerResult(
-    smallerMatrix: MyVector[MyVector[A]],
-    toBeSubtractedAbove: List[NonEmptyList[Option[MyVector[A]]]],
-  )
-
-  def onZeroColumn(height: Int, maybeRightMatrixToProcess: Option[MyVector[MyVector[A]]]): SmallerResult =
-    maybeRightMatrixToProcess match
-      case Some(rightMatrixToProcess) =>
-        val SmallerResult(rightMatrix, toBeSubtractedAbove) = reducedRecursive(rightMatrixToProcess)
-        SmallerResult(rightMatrix.map(Zero :: _), toBeSubtractedAbove)
-      case None =>
-        SmallerResult(List.tabulate(height)(_ => List(Zero)), List.empty)
-
-  def dropZeroColumn(
-    headVectorTail: MyVector[A],
-    maybeTailMatrix: Option[MyVector[MyVector[A]]],
-  ): MyVector[MyVector[A]] =
-    desplit(
-      headVectorTail,
-      maybeTailMatrix.map(_.map(_.tail)),
-    ) // todo: it should be guaranteed, that if we have headVectorTail we can do _.tail operation
-
-  def subtractBy(coefficient: A)(x: A, base: A): A =
-    x - base * coefficient
-
-  def subtractDown(
-    headVectorLead: A,
-    maybeHeadVectorTail: Option[MyVector[A]],
-    maybeTailMatrix: Option[MyVector[MyVector[A]]],
-  ): Option[MyVector[MyVector[A]]] =
-    maybeTailMatrix.flatMap { tailMatrix =>
-      tailMatrix.traverse { tailMatrixRow =>
-        val (rowLead, maybeRowTail) = split(tailMatrixRow)
-        if rowLead == Zero then maybeRowTail
-        else
-          combineOptions(maybeHeadVectorTail, maybeRowTail) { (headVectorTail, rowTail) =>
-            map2(rowTail, headVectorTail)(subtractBy(rowLead / headVectorLead))
+      val subtractedParts = lmap2[Option[MyVector[A]]](maybeNewPartToSubtract :: vectorParts, currentToSubtract) {
+        (maybeVectorPart, maybeToSubtractPart) =>
+          combineOptions(maybeVectorPart, maybeToSubtractPart) { (vectorPart, toSubtractPart) =>
+            map2(vectorPart, toSubtractPart)(subtractBy(localLead))
           }
       }
-    }
 
-  @tailrec
-  def subtractBack(
-    toSubtract: List[NonEmptyList[Option[MyVector[A]]]],
-    vector: MyVector[A],
-    vectorParts: List[Option[MyVector[A]]] = List.empty,
-  ): NonEmptyList[Option[MyVector[A]]] = {
-    toSubtract match
-      case Nil => Some(vector) :: vectorParts
-      case currentToSubtract :: othersToSubtract =>
-        val splitPattern                                   = currentToSubtract.head
-        val (maybeRest, localLead, maybeNewPartToSubtract) = sliceRightForSubtract(vector, splitPattern)
-
-        val subtractedParts = lmap2[Option[MyVector[A]]](maybeNewPartToSubtract :: vectorParts, currentToSubtract) {
-          (maybeVectorPart, maybeToSubtractPart) =>
-            combineOptions(maybeVectorPart, maybeToSubtractPart) { (vectorPart, toSubtractPart) =>
-              map2(vectorPart, toSubtractPart)(subtractBy(localLead))
-            }
-        }
-
-        maybeRest match
-          case Some(restVector) =>
-            subtractBack(
-              othersToSubtract,
-              restVector,
-              subtractedParts,
-            )
-          case None => None :: subtractedParts
-  }
-
-  def divideByLead(lead: A, maybeVector: Option[MyVector[A]]): Option[MyVector[A]] =
-    maybeVector.map(_.map(_ / lead))
-
-  def composeVectorParts(parts: NonEmptyList[Option[MyVector[A]]]): Option[MyVector[A]] = {
-    val (_, withoutLeftZero) = split(parts.flatMap(desplit(Zero, _)))
-    withoutLeftZero
-  }
-
-  def onDownSubtraction(
-    headLead: A,
-    maybeHeadTail: Option[MyVector[A]],
-    maybeDownRightMatrixToProcess: Option[MyVector[MyVector[A]]],
-  ): SmallerResult =
-    maybeDownRightMatrixToProcess match
-      case Some(downRightMatrixToProcess) =>
-        val SmallerResult(downRightMatrix, toSubtract) = reducedRecursive(downRightMatrixToProcess)
-
-        val maybeSubtractedTailParts: Option[NonEmptyList[Option[MyVector[A]]]] =
-          maybeHeadTail.map(subtractBack(toSubtract, _))
-
-        val maybeDividedSubtractedTailParts: Option[NonEmptyList[Option[MyVector[A]]]] =
-          maybeSubtractedTailParts.map(_.map(divideByLead(headLead, _)))
-
-        val maybeComposedVectorTail: Option[MyVector[A]] =
-          maybeDividedSubtractedTailParts.flatMap(composeVectorParts)
-
-        val headVector       = desplit(One, maybeComposedVectorTail)
-        val zeroedDownMatrix = downRightMatrix.map(Zero :: _)
-        SmallerResult(
-          headVector :: zeroedDownMatrix,
-          maybeDividedSubtractedTailParts.fold(toSubtract)(toSubtract :+ _),
-        )
-      case None =>
-        val maybeDividedTail = divideByLead(headLead, maybeHeadTail)
-        SmallerResult(List(desplit(One, maybeDividedTail)), List(List(maybeDividedTail)))
-
-  def reducedRecursive(matrix: MyVector[MyVector[A]]): SmallerResult = {
-    val swapped = moveNonZeroLeadRowToTop2(matrix)
-
-    val (headVector, maybeTailMatrix)         = split(swapped)
-    val (headVectorLead, maybeHeadVectorTail) = split(headVector)
-
-    if headVectorLead == Zero then
-      onZeroColumn(
-        matrix.length,
-        maybeHeadVectorTail.map(dropZeroColumn(_, maybeTailMatrix)),
-      )
-    else
-      onDownSubtraction(
-        headVectorLead,
-        maybeHeadVectorTail,
-        subtractDown(headVectorLead, maybeHeadVectorTail, maybeTailMatrix),
-      )
-  }
-
-  def reduced(matrix: MyVector[MyVector[A]]): MyVector[MyVector[A]] =
-    reducedRecursive(matrix).smallerMatrix
+      maybeRest match
+        case Some(restVector) =>
+          subtractBack(
+            othersToSubtract,
+            restVector,
+            subtractedParts,
+          )
+        case None => None :: subtractedParts
 }
+
+def divideByLead(lead: A, maybeVector: Option[MyVector[A]]): Option[MyVector[A]] =
+  maybeVector.map(_.map(_ / lead))
+
+def composeVectorParts(parts: NonEmptyList[Option[MyVector[A]]]): Option[MyVector[A]] = {
+  val (_, withoutLeftZero) = split(parts.flatMap(desplit(Zero, _)))
+  withoutLeftZero
+}
+
+def onDownSubtraction(
+  headLead: A,
+  maybeHeadTail: Option[MyVector[A]],
+  maybeDownRightMatrixToProcess: Option[MyVector[MyVector[A]]],
+): SmallerResult =
+  maybeDownRightMatrixToProcess match
+    case Some(downRightMatrixToProcess) =>
+      val SmallerResult(downRightMatrix, toSubtract) = reducedRecursive(downRightMatrixToProcess)
+
+      val maybeSubtractedTailParts: Option[NonEmptyList[Option[MyVector[A]]]] =
+        maybeHeadTail.map(subtractBack(toSubtract, _))
+
+      val maybeDividedSubtractedTailParts: Option[NonEmptyList[Option[MyVector[A]]]] =
+        maybeSubtractedTailParts.map(_.map(divideByLead(headLead, _)))
+
+      val maybeComposedVectorTail: Option[MyVector[A]] =
+        maybeDividedSubtractedTailParts.flatMap(composeVectorParts)
+
+      val headVector       = desplit(One, maybeComposedVectorTail)
+      val zeroedDownMatrix = downRightMatrix.map(Zero :: _)
+      SmallerResult(
+        headVector :: zeroedDownMatrix,
+        maybeDividedSubtractedTailParts.fold(toSubtract)(toSubtract :+ _),
+      )
+    case None =>
+      val maybeDividedTail = divideByLead(headLead, maybeHeadTail)
+      SmallerResult(List(desplit(One, maybeDividedTail)), List(List(maybeDividedTail)))
+
+def reducedRecursive(matrix: MyVector[MyVector[A]]): SmallerResult = {
+  val swapped = moveNonZeroLeadRowToTop2(matrix)
+
+  val (headVector, maybeTailMatrix)         = split(swapped)
+  val (headVectorLead, maybeHeadVectorTail) = split(headVector)
+
+  if headVectorLead == Zero then
+    onZeroColumn(
+      matrix.length,
+      maybeHeadVectorTail.map(dropZeroColumn(_, maybeTailMatrix)),
+    )
+  else
+    onDownSubtraction(
+      headVectorLead,
+      maybeHeadVectorTail,
+      subtractDown(headVectorLead, maybeHeadVectorTail, maybeTailMatrix),
+    )
+}
+
+def reduced(matrix: MyVector[MyVector[A]]): MyVector[MyVector[A]] =
+  reducedRecursive(matrix).smallerMatrix
 
 //
 //
@@ -438,17 +291,11 @@ object Upgrade {
   )
 
   def process(matrix: MyVector[MyVector[A]]): Unit = {
-    val result = startFunction(matrix)
-    println(result)
-    val composed = composeResult(result)
-    printMatrix(composed)
-
-    val decomposed = upDecomposition(result)
-    println(decomposed)
-    printMatrix(decomposed.downRightMatrix)
-
+    println("In:")
+    printMatrix(matrix)
+    println("Out:")
+    printMatrix(reduced(matrix))
     println("---")
-    printMatrix(Upgrade.reduced(matrix))
   }
 
   val randomMatrix1: MyVector[MyVector[A]] = List(
