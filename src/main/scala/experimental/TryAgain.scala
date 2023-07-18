@@ -280,10 +280,11 @@ object Upgrade {
   ): MyVector[MyVector[A]] =
     desplit(
       headVectorTail,
-      maybeTailMatrix.map(_.tail),
+      maybeTailMatrix.map(_.map(_.tail)),
     ) // todo: it should be guaranteed, that if we have headVectorTail we can do _.tail operation
 
-  def subtractBy(coefficient: A)(x: A, base: A): A = x - base * coefficient
+  def subtractBy(coefficient: A)(x: A, base: A): A =
+    x - base * coefficient
 
   def subtractDown(
     headVectorLead: A,
@@ -296,7 +297,7 @@ object Upgrade {
         if rowLead == Zero then maybeRowTail
         else
           combineOptions(maybeHeadVectorTail, maybeRowTail) { (headVectorTail, rowTail) =>
-            map2(headVectorTail, rowTail)(subtractBy(rowLead / headVectorLead))
+            map2(rowTail, headVectorTail)(subtractBy(rowLead / headVectorLead))
           }
       }
     }
@@ -448,15 +449,7 @@ object Upgrade {
 
     println("---")
     printMatrix(Upgrade.reduced(matrix))
-    println("---")
   }
-
-  process(matrix1)
-  process(matrix2)
-  process(matrix3)
-  process(matrix4)
-  process(matrix5)
-  process(matrix6)
 
   val randomMatrix1: MyVector[MyVector[A]] = List(
     List(4, 19, 0, 1),
@@ -468,7 +461,6 @@ object Upgrade {
   0            1            0            389 / 3529
   0            0            1            -7799 / 3529
    */
-  process(randomMatrix1)
 
   val randomMatrix2: MyVector[MyVector[A]] = List(
     List(-1, -2, -3, -4, -5, -6),
@@ -482,7 +474,6 @@ object Upgrade {
 	0	0	1	1.5	2	2.5
 	0	0	0	0	0	0
    */
-  process(randomMatrix2)
 
   val randomMatrix3: MyVector[MyVector[A]] = List(
     List(2, 4, -2, 6),
@@ -494,7 +485,6 @@ object Upgrade {
     [ 0  1 -1 |  -0.5 ]
     [ 0  0  0 |  0 ]
    */
-  process(randomMatrix3)
 
   val randomMatrix4: MyVector[MyVector[A]] = List(
     List(2, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11),
@@ -521,5 +511,16 @@ object Upgrade {
     0	0	0	0	0	0	0	0	0	0	0
     0	0	0	0	0	0	0	0	0	0	0
    */
+
+  process(matrix1)
+  process(matrix2)
+  process(matrix3)
+  process(matrix4)
+  process(matrix5)
+  process(matrix6)
+
+  process(randomMatrix1)
+  process(randomMatrix2)
+  process(randomMatrix3)
   process(randomMatrix4)
 }
