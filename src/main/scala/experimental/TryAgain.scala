@@ -2,10 +2,17 @@ package experimental
 
 import java.math.{MathContext, RoundingMode}
 import scala.annotation.tailrec
+import org.apache.commons.math3.fraction.Fraction
 
-type A = BigDecimal
-val Zero: A = BigDecimal(0)
-val One: A  = BigDecimal(1)
+type A = Fraction
+val Zero: A = Fraction.ZERO
+val One: A  = Fraction.ONE
+
+extension (a: A) {
+  def /(b: A): A = a.divide(b)
+  def -(b: A): A = a.subtract(b)
+  def *(b: A): A = a.multiply(b)
+}
 
 type MyVector[B] = List[B]
 
@@ -237,7 +244,7 @@ def printMatrix(matrix: List[List[A]]): Unit = {
 @main def test = {
   println("start!")
 
-  given Conversion[Int, A] = int => BigDecimal(int, new MathContext(10, RoundingMode.FLOOR))
+  given Conversion[Int, A] = int => Fraction(int)
 
   val matrix1: MyVector[MyVector[A]] = List(
     List(0, 2, 3, 4),
@@ -298,7 +305,11 @@ def printMatrix(matrix: List[List[A]]): Unit = {
     List(42, 4, -5, 0),
     List(0, 1, -9, 20),
   )
-  // the answer is Identity + [-0.2736, 0.1102, -2.20997]
+  /* the answer is:
+  1            0            0            -1931 / 7058
+  0            1            0            389 / 3529
+  0            0            1            -7799 / 3529
+   */
   process(randomMatrix1)
 
   val randomMatrix2: MyVector[MyVector[A]] = List(
@@ -327,7 +338,7 @@ def printMatrix(matrix: List[List[A]]): Unit = {
    */
   process(randomMatrix3)
 
-  val randomMatrix4: MyVector[MyVector[A]] = List( // todo: figure out why failed
+  val randomMatrix4: MyVector[MyVector[A]] = List(
     List(2, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11),
     List(12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22),
     List(23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33),
