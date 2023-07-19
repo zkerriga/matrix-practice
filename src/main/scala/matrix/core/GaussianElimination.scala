@@ -19,13 +19,11 @@ private[matrix] object GaussianElimination:
     toSubtractAbove: StdVector[NonEmptyList[Option[Vector[_, A]]]],
   )
 
-  extension [H <: Int, W <: Int, A](matrix: Matrix[H, W, A])
-    def asH[H2 <: Int](using H =:= H2): Matrix[H2, W, A] =
-      summon[H =:= H2].liftCo[[h] =>> Matrix[h & Int, W, A]](matrix)
-
-  extension [H <: Int, W <: Int, A](result: SubMatrixResult[H, W, A])
-    def asW[W2 <: Int](using W =:= W2): SubMatrixResult[H, W2, A] =
-      summon[W =:= W2].liftCo[[w] =>> SubMatrixResult[H, w & Int, A]](result)
+  extension [H <: Int, W <: Int, A, F[_ <: Int, _ <: Int, _]](fa: F[H, W, A])
+    def asH[H2 <: Int](using H =:= H2): F[H2, W, A] =
+      summon[H =:= H2].liftCo[[h] =>> F[h & Int, W, A]](fa)
+    def asW[W2 <: Int](using W =:= W2): F[H, W2, A] =
+      summon[W =:= W2].liftCo[[w] =>> F[H, w & Int, A]](fa)
 
   def moveNonZeroLeadRowToTop[H <: Int, W <: Int, A: Zero](matrix: Matrix[H, W, A]): Matrix[H, W, A] = {
     val topVector = matrix.topRow
