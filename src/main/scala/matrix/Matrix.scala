@@ -3,6 +3,7 @@ package matrix
 import math.*
 import math.aliases.*
 import math.syntax.*
+import lemmas.given
 
 import scala.compiletime.ops.int.*
 
@@ -15,6 +16,13 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
 
   def getRow[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Height]): Vector[Width, A]
   def getColumn[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Width]): Vector[Height, A]
+
+  def topRow: Vector[Width, A] = getRow(0)
+  def topTail: Option[Matrix[Height - 1, Width, A]]
+
+  def addTop[B >: A](top: Vector[Width, B]): Matrix[Height + 1, Width, B]
+  def addDown[B >: A](down: Vector[Width, B]): Matrix[Height + 1, Width, B]
+  def addTop[Height1 <: Int, B >: A](top: Matrix[Height1, Width, B]): Matrix[Height1 + Height, Width, B]
 
   def apply[Row <: Int & Singleton, Column <: Int & Singleton](row: Row, column: Column)(using
     Evidence[Row IsIndexFor Height],
@@ -83,8 +91,16 @@ object Matrix:
     def getColumn[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Width]): Vector[Height, A] =
       Vector.tabulate[Height, A](height) { row => getRow(row).apply[I](index) }
 
-    // todo: temporary
-    def toVector: Vector[Height, Vector[Width, A]] = table
+    def topTail: Option[Matrix[Height - 1, Width, A]] =
+      table.tail.map(Matrix(_))
+
+    def addTop[B >: A](vector: Vector[Width, B]): Matrix[Height + 1, Width, B] =
+      Matrix(vector +: table)
+    def addDown[B >: A](down: Vector[Width, B]): Matrix[Height + 1, Width, B] =
+      Matrix(table :+ down)
+    def addTop[Height1 <: Int, B >: A](top: Matrix[Height1, Width, B]): Matrix[Height1 + Height, Width, B] =
+      import top.heightEvidence
+      Matrix(Vector.tabulate[Height1, Vector[Width, B]](top.height) { index => top.getRow(index) } ++ table)
 
     def map[B](f: A => B): Matrix[Height, Width, B] =
       Impl(height, width, table.map(_.map(f)))

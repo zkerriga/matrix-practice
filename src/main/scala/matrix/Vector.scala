@@ -6,11 +6,16 @@ import math.syntax.*
 import lemmas.given
 
 import scala.collection.immutable.Vector as StdVec
-import scala.compiletime.ops.int.{>, -}
+import scala.compiletime.ops.int.{>, -, +}
 import scala.math.Ordering.Implicits.*
 
 trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[Size > 0]):
   def apply[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Size]): A
+  def tail: Option[Vector[Size - 1, A]]
+  def +:[B >: A](a: B): Vector[Size + 1, B]
+  def :+[B >: A](a: B): Vector[Size + 1, B]
+  def ++[S <: Int, B >: A](other: Vector[S, B]): Vector[Size + S, B]
+
   def head: A = apply(0)
 
   infix def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C]              = map(_ * scalar)
@@ -57,6 +62,21 @@ object Vector:
       extends Vector[Size, A](size):
     def apply[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Size]): A =
       vec(index)
+
+    def tail: Option[Vector[Size - 1, A]] =
+      Option.when(size > 1)(Impl((size - 1).asInstanceOf[Size - 1], vec.tail)(using guaranteed))
+
+    def +:[B >: A](a: B): Vector[Size + 1, B] =
+      Impl((size + 1).asInstanceOf[Size + 1], a +: vec)
+    def :+[B >: A](a: B): Vector[Size + 1, B] =
+      Impl((size + 1).asInstanceOf[Size + 1], vec :+ a)
+
+    def ++[S <: Int, B >: A](other: Vector[S, B]): Vector[Size + S, B] =
+      import other.sizeEvidence
+      Impl(
+        (size + other.size).asInstanceOf[Size + S],
+        vec ++ StdVec.tabulate(other.size)(index => other(index)(using guaranteed)),
+      )
 
     def map[B](f: A => B): Vector[Size, B] =
       Impl(size, vec.map(f))

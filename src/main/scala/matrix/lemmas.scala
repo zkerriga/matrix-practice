@@ -14,4 +14,22 @@ object lemmas:
    */
   given [A <: Boolean, B <: Boolean](using Evidence[A], Evidence[B]): Evidence[A && B] = guaranteed
 
-  given [A <: Int](using Evidence[A > 1]): Evidence[(A - 1) > 0] = guaranteed
+  /**
+   * for any two integers > 0 the sum of them will be > 0
+   */
+  given [A <: Int, B <: Int](using Evidence[A > 0], Evidence[B > 0]): Evidence[(A + B) > 0] = guaranteed
+
+  /**
+   * for any integer B minus and plus together do nothing with the A
+   */
+  given [A <: Int, B <: Int]: =:=[A - B + B, A] = <:<.refl.asInstanceOf
+
+  /**
+   * Associative Property of Addition
+   */
+  given [A <: Int, B <: Int, C <: Int]: =:=[A - B - C, A - (B + C)] = <:<.refl.asInstanceOf
+
+  /**
+   * for any integers A minus A will do nothing for B - C
+   */
+  given [A <: Int, B <: Int, C <: Int]: =:=[A + (B - A - C), B - C] = <:<.refl.asInstanceOf
