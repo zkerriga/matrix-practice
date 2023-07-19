@@ -12,6 +12,7 @@ import scala.math.Ordering.Implicits.*
 trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[Size > 0]):
   def apply[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Size]): A
   def tail: Option[Vector[Size - 1, A]]
+  def tail(using Evidence[Size > 1]): Vector[Size - 1, A]
   def +:[B >: A](a: B): Vector[Size + 1, B]
   def :+[B >: A](a: B): Vector[Size + 1, B]
   def ++[S <: Int, B >: A](other: Vector[S, B]): Vector[Size + S, B]
@@ -65,6 +66,8 @@ object Vector:
 
     def tail: Option[Vector[Size - 1, A]] =
       Option.when(size > 1)(Impl((size - 1).asInstanceOf[Size - 1], vec.tail)(using guaranteed))
+    def tail(using Evidence[Size > 1]): Vector[Size - 1, A] =
+      Impl((size - 1).asInstanceOf[Size - 1], vec.tail)
 
     def +:[B >: A](a: B): Vector[Size + 1, B] =
       Impl((size + 1).asInstanceOf[Size + 1], a +: vec)
@@ -137,6 +140,9 @@ object Vector:
    */
   def tabulate[Size <: Int, A](size: Size)(f: Tabulate[Size, A])(using Evidence[Size > 0]): Vector[Size, A] =
     Impl(size, StdVec.tabulate(size) { index => f(index)(using guaranteed) })
+
+  def fill[Size <: Int, A](size: Size)(elem: => A)(using Evidence[Size > 0]): Vector[Size, A] =
+    Impl(size, StdVec.fill(size)(elem))
 
   /**
    * similar to [[tabulate]], but instead of creating a [[Vector]] it immediately reduces all the values

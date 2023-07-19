@@ -4,10 +4,11 @@ import math.Zero
 import matrix.lemmas.given
 
 import scala.collection.immutable.Vector as StdVector
-import matrix.{Matrix, Vector}
+import matrix.{Evidence, Matrix, Vector}
 
+import javax.lang.model.`type`.WildcardType
 import scala.annotation.tailrec
-import scala.compiletime.ops.int.{+, -}
+import scala.compiletime.ops.int.{+, -, >}
 
 private[matrix] object GaussianElimination:
   type NonEmptyList[+A] = List[A]
@@ -21,6 +22,10 @@ private[matrix] object GaussianElimination:
   extension [H <: Int, W <: Int, A](matrix: Matrix[H, W, A])
     def asH[H2 <: Int](using H =:= H2): Matrix[H2, W, A] =
       summon[H =:= H2].liftCo[[h] =>> Matrix[h & Int, W, A]](matrix)
+
+  extension [H <: Int, W <: Int, A](result: SubMatrixResult[H, W, A])
+    def asW[W2 <: Int](using W =:= W2): SubMatrixResult[H, W2, A] =
+      summon[W =:= W2].liftCo[[w] =>> SubMatrixResult[H, w & Int, A]](result)
 
   def moveNonZeroLeadRowToTop[H <: Int, W <: Int, A: Zero](matrix: Matrix[H, W, A]): Matrix[H, W, A] = {
     val topVector = matrix.topRow
@@ -45,8 +50,50 @@ private[matrix] object GaussianElimination:
       }
   }
 
-  def recursive[H <: Int, W <: Int, A: Zero](matrix: Matrix[H, W, A]): SubMatrixResult[H, W, A] =
-    SubMatrixResult(moveNonZeroLeadRowToTop(matrix), StdVector.empty)
+  def onZeroColumn[H <: Int, W <: Int, A: Zero](
+    height: H,
+    maybeRightMatrixToProcess: Option[Matrix[H, W, A]],
+  )(using Evidence[H > 0]): SubMatrixResult[H, W + 1, A] =
+    val zero                     = Zero.of[A]
+    val zeroColumn: Vector[H, A] = Vector.fill(height)(zero)
+    maybeRightMatrixToProcess match
+      case Some(rightMatrixToProcess) =>
+        val SubMatrixResult(rightMatrix, toBeSubtractedAbove) = recursive(rightMatrixToProcess)
+        SubMatrixResult(rightMatrix.addLeft(zeroColumn), toBeSubtractedAbove)
+      case None =>
+        SubMatrixResult(Matrix(zeroColumn.map(Vector.of[A](_).asInstanceOf[Vector[W + 1, A]])), StdVector.empty)
+
+  def desplitTop[H <: Int, W <: Int, A](top: Vector[W, A], tail: Option[Matrix[H - 1, W, A]]): Matrix[H, W, A] =
+    tail match
+      case Some(tailMatrix) => tailMatrix.addTop(top).asH[H]
+      case None             => Matrix(Vector.of[Vector[W, A]](top).asInstanceOf[Vector[H, Vector[W, A]]])
+
+  def dropZeroColumn[H <: Int, W <: Int, A](
+    topVectorTail: Vector[W - 1, A],
+    maybeTailMatrix: Option[Matrix[H - 1, W, A]],
+  ): Matrix[H, W - 1, A] =
+    import topVectorTail.sizeEvidence
+    desplitTop(
+      topVectorTail,
+      maybeTailMatrix.map(_.leftTail),
+    )
+
+  def recursive[H <: Int, W <: Int, A: Zero](matrix: Matrix[H, W, A]): SubMatrixResult[H, W, A] = {
+    val swapped = moveNonZeroLeadRowToTop(matrix)
+
+    val topVector          = swapped.topRow
+    val maybeMatrixTail    = swapped.topTail
+    val topVectorLead      = topVector.head
+    val maybeTopVectorTail = topVector.tail
+
+    if topVectorLead == Zero.of[A] then
+      import matrix.heightEvidence
+      onZeroColumn(
+        matrix.height,
+        maybeTopVectorTail.map(dropZeroColumn(_, maybeMatrixTail)),
+      ).asW[W]
+    else ???
+  }
 
 @main def test = {
   val matrix: Matrix[4, 2, Int] = Matrix {
@@ -57,5 +104,14 @@ private[matrix] object GaussianElimination:
       Vector.of(0, 3),
     )
   }
-  println(GaussianElimination.recursive(matrix))
+
+  val matrix2: Matrix[4, 2, Int] = Matrix {
+    Vector.of(
+      Vector.of(0, 0),
+      Vector.of(0, 0),
+      Vector.of(0, 0),
+      Vector.of(0, 0),
+    )
+  }
+  println(GaussianElimination.recursive(matrix2))
 }

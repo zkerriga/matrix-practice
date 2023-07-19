@@ -14,6 +14,10 @@ object lemmas:
    */
   given [A <: Boolean, B <: Boolean](using Evidence[A], Evidence[B]): Evidence[A && B] = guaranteed
 
+  given l1[A <: Int, B <: Int](using Evidence[A > B]): Evidence[(A - B) > 0] = guaranteed
+
+  given l2[A <: Int, B <: Int](using Evidence[(A - B) > 0]): Evidence[A > B] = guaranteed
+
   /**
    * for any two integers > 0 the sum of them will be > 0
    */

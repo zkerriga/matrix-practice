@@ -19,9 +19,11 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
 
   def topRow: Vector[Width, A] = getRow(0)
   def topTail: Option[Matrix[Height - 1, Width, A]]
+  def leftTail(using Evidence[Width > 1]): Matrix[Height, Width - 1, A]
 
   def addTop[B >: A](top: Vector[Width, B]): Matrix[Height + 1, Width, B]
   def addDown[B >: A](down: Vector[Width, B]): Matrix[Height + 1, Width, B]
+  def addLeft[B >: A](left: Vector[Height, B]): Matrix[Height, Width + 1, B]
   def addTop[Height1 <: Int, B >: A](top: Matrix[Height1, Width, B]): Matrix[Height1 + Height, Width, B]
 
   def apply[Row <: Int & Singleton, Column <: Int & Singleton](row: Row, column: Column)(using
@@ -93,11 +95,15 @@ object Matrix:
 
     def topTail: Option[Matrix[Height - 1, Width, A]] =
       table.tail.map(Matrix(_))
+    def leftTail(using Evidence[Width > 1]): Matrix[Height, Width - 1, A] =
+      Matrix(table.map(_.tail))
 
     def addTop[B >: A](vector: Vector[Width, B]): Matrix[Height + 1, Width, B] =
       Matrix(vector +: table)
     def addDown[B >: A](down: Vector[Width, B]): Matrix[Height + 1, Width, B] =
       Matrix(table :+ down)
+    def addLeft[B >: A](left: Vector[Height, B]): Matrix[Height, Width + 1, B] =
+      Matrix(Vector.map2(left, table)(_ +: _))
     def addTop[Height1 <: Int, B >: A](top: Matrix[Height1, Width, B]): Matrix[Height1 + Height, Width, B] =
       import top.heightEvidence
       Matrix(Vector.tabulate[Height1, Vector[Width, B]](top.height) { index => top.getRow(index) } ++ table)
