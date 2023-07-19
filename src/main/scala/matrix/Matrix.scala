@@ -66,7 +66,8 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
       apply(row, column)
     }
 
-  def map[B](f: A => B): Matrix[Height, Width, B]
+  def mapRows[Width2 <: Int, B](f: Vector[Width, A] => Vector[Width2, B]): Matrix[Height, Width2, B]
+  def map[B](f: A => B): Matrix[Height, Width, B] = mapRows(_.map(f))
 
   override def equals(obj: Any): Boolean = (this eq obj.asInstanceOf[AnyRef]) || (obj match
     case other: Matrix[Height @unchecked, Width @unchecked, A @unchecked] =>
@@ -108,8 +109,8 @@ object Matrix:
       import top.heightEvidence
       Matrix(Vector.tabulate[Height1, Vector[Width, B]](top.height) { index => top.getRow(index) } ++ table)
 
-    def map[B](f: A => B): Matrix[Height, Width, B] =
-      Impl(height, width, table.map(_.map(f)))
+    def mapRows[Width2 <: Int, B](f: Vector[Width, A] => Vector[Width2, B]): Matrix[Height, Width2, B] =
+      Matrix(table.map(f))
 
     override def toString: String = table.toString
   end Impl
