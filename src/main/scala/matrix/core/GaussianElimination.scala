@@ -6,7 +6,6 @@ import matrix.lemmas.given
 import scala.collection.immutable.Vector as StdVector
 import matrix.{Evidence, Matrix, Vector}
 
-import javax.lang.model.`type`.WildcardType
 import scala.annotation.tailrec
 import scala.compiletime.ops.int.{+, -, >}
 
