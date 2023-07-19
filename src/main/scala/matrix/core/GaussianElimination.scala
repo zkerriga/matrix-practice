@@ -118,7 +118,17 @@ private[matrix] object GaussianElimination:
   def sliceByPattern[Size <: Int, PatternSize <: Int, A](
     vector: Vector[Size, A],
     pattern: Option[Vector[PatternSize, A]],
-  ): (Option[Vector[Size - PatternSize - 1, A]], A, Option[Vector[PatternSize, A]]) = ???
+  ): (Option[Vector[Size - PatternSize - 1, A]], A, Option[Vector[PatternSize, A]]) =
+    pattern match
+      case None =>
+        (vector.init.asInstanceOf[Option[Vector[Size - PatternSize - 1, A]]], vector.last, None)
+      case Some(patternVector) =>
+        val subtractionPart = vector.slice[Size - PatternSize, Size](vector.size - patternVector.size, vector.size)
+        val localLead       = vector(vector.size - patternVector.size - 1)
+        val maybeRest: Vector[Size - PatternSize - 1, A] = Option.when(vector.size - pattern.size - 1 > 0) {
+          vector.slice[0, Size - PatternSize - 1](0, vector.size - pattern.size - 1)
+        }
+        (maybeRest, localLead, Some(subtractionPart))
 
   def subtractBack[A: Mul: Sub](
     toSubtract: StdVector[NonEmptyList[Option[Vector[_, A]]]],

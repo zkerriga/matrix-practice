@@ -18,6 +18,12 @@ object lemmas:
 
   given l2[A <: Int, B <: Int](using Evidence[(A - B) > 0]): Evidence[A > B] = guaranteed
 
+  // todo: document
+  given [A <: Int](using Evidence[A > 0]): Evidence[(A - 1) >= 0] = guaranteed
+
+  // todo: document
+  given [A <: Int]: Evidence[(A - 1) < A] = guaranteed
+
   /**
    * for any two integers > 0 the sum of them will be > 0
    */

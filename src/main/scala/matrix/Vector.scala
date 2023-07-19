@@ -13,11 +13,19 @@ trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[S
   def apply[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Size]): A
   def tail: Option[Vector[Size - 1, A]]
   def tail(using Evidence[Size > 1]): Vector[Size - 1, A]
+  def init: Option[Vector[Size - 1, A]]
+  def slice[From <: Int, To <: Int](from: From, to: To)(using
+    Evidence[(To - From) > 0],
+    Evidence[From IsIndexFor Size],
+    Evidence[(To - 1) IsIndexFor Size],
+  ): Vector[To - From, A]
+
   def +:[B >: A](a: B): Vector[Size + 1, B]
   def :+[B >: A](a: B): Vector[Size + 1, B]
   def ++[S <: Int, B >: A](other: Vector[S, B]): Vector[Size + S, B]
 
   def head: A = apply(0)
+  def last: A = apply[Size - 1]((size - 1).asInstanceOf[Size - 1])
 
   infix def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C]              = map(_ * scalar)
   infix def +[B, C](other: Vector[Size, B])(using HAdd[A, B, C]): Vector[Size, C] = Vector.map2(this, other)(_ + _)
@@ -68,6 +76,16 @@ object Vector:
       Option.when(size > 1)(Impl((size - 1).asInstanceOf[Size - 1], vec.tail)(using guaranteed))
     def tail(using Evidence[Size > 1]): Vector[Size - 1, A] =
       Impl((size - 1).asInstanceOf[Size - 1], vec.tail)
+
+    def init: Option[Vector[Size - 1, A]] =
+      Option.when(size > 1)(Impl((size - 1).asInstanceOf[Size - 1], vec.init)(using guaranteed))
+
+    def slice[From <: Int, To <: Int](from: From, to: To)(using
+      Evidence[(To - From) > 0],
+      Evidence[From IsIndexFor Size],
+      Evidence[(To - 1) IsIndexFor Size],
+    ): Vector[To - From, A] =
+      Impl((to - from).asInstanceOf[To - From], vec.slice(from, to))
 
     def +:[B >: A](a: B): Vector[Size + 1, B] =
       Impl((size + 1).asInstanceOf[Size + 1], a +: vec)
