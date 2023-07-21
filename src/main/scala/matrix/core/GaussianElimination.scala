@@ -118,17 +118,17 @@ private[matrix] object GaussianElimination:
   def sliceByPattern[Size <: Int, PatternSize <: Int, A](
     vector: Vector[Size, A],
     pattern: Option[Vector[PatternSize, A]],
-  ): (Option[Vector[Size - PatternSize - 1, A]], A, Option[Vector[PatternSize, A]]) =
-    pattern match
-      case None =>
-        (vector.init.asInstanceOf[Option[Vector[Size - PatternSize - 1, A]]], vector.last, None)
-      case Some(patternVector) =>
-        val subtractionPart = vector.slice[Size - PatternSize, Size](vector.size - patternVector.size, vector.size)
-        val localLead       = vector(vector.size - patternVector.size - 1)
-        val maybeRest: Vector[Size - PatternSize - 1, A] = Option.when(vector.size - pattern.size - 1 > 0) {
-          vector.slice[0, Size - PatternSize - 1](0, vector.size - pattern.size - 1)
-        }
-        (maybeRest, localLead, Some(subtractionPart))
+  ): (Option[Vector[Size - PatternSize - 1, A]], A, Option[Vector[PatternSize, A]]) = ???
+  // pattern match
+  //   case None =>
+  //     (vector.init.asInstanceOf[Option[Vector[Size - PatternSize - 1, A]]], vector.last, None)
+  //   case Some(patternVector) =>
+  //     val subtractionPart = vector.slice[Size - PatternSize, Size](vector.size - patternVector.size, vector.size)
+  //     val localLead       = vector(vector.size - patternVector.size - 1)
+  //     val maybeRest: Vector[Size - PatternSize - 1, A] = Option.when(vector.size - pattern.size - 1 > 0) {
+  //       vector.slice[0, Size - PatternSize - 1](0, vector.size - pattern.size - 1)
+  //     }
+  //     (maybeRest, localLead, Some(subtractionPart))
 
   def subtractBack[A: Mul: Sub](
     toSubtract: StdVector[NonEmptyList[Option[Vector[_, A]]]],
@@ -137,14 +137,14 @@ private[matrix] object GaussianElimination:
     val (maybeRest, subtractedPartsList) = toSubtract.foldLeft((Some(vector), List.empty[Option[Vector[_, A]]])) {
       case ((Some(vector), parts), currentToSubtract) =>
         val splitPattern                         = currentToSubtract.head
-        val (maybeRest, localLead, maybeNewPart) = sliceByPattern(vector, splitPattern)
+        val (maybeRest, localLead, maybeNewPart) = sliceByPattern(vector, ??? /* splitPattern */ )
 
         val subtractedParts = map2(maybeNewPart +: parts, currentToSubtract) { (maybeVectorPart, maybeToSubtractPart) =>
           map2(maybeVectorPart, maybeToSubtractPart) { (vectorPart, toSubtractPart) =>
-            Vector.map2(vectorPart, toSubtractPart)(subtractBy(localLead))
+            Vector.map2(vectorPart, ??? /* toSubtractPart */ )(subtractBy(localLead))
           }
         }
-        (maybeRest, subtractedParts)
+        (??? /* maybeRest */, subtractedParts)
       case (acc, _) => acc
     }
     maybeRest :: subtractedPartsList
@@ -153,7 +153,7 @@ private[matrix] object GaussianElimination:
     maybeVector.map(_.map(_ / lead))
 
   def composeVectorParts[Size <: Int, A: Zero](parts: NonEmptyList[Option[Vector[_, A]]]): Option[Vector[Size, A]] =
-    parts.map(desplit(Zero.of[A], _)).reduce((l, r) => l ++ r).tail
+    ??? // parts.map(desplit(Zero.of[A], _)).reduce((l, r) => l ++ r).tail
 
   def onDownSubtraction[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One](
     topLead: A,
@@ -174,7 +174,7 @@ private[matrix] object GaussianElimination:
           maybeTopTail.map(subtractBack(toSubtract, _))
 
         val maybeDividedSubtractedTailParts: Option[NonEmptyList[Option[Vector[_, A]]]] =
-          maybeSubtractedTailParts.map(_.map(divideByLead(topLead, _)))
+          ??? // maybeSubtractedTailParts.map(_.map(divideByLead(topLead, _)))
 
         val maybeComposedVectorTail: Option[Vector[W - 1, A]] =
           maybeDividedSubtractedTailParts.flatMap(composeVectorParts)

@@ -2,6 +2,7 @@ package matrix
 
 import scala.compiletime.ops.int.*
 import scala.compiletime.ops.boolean.*
+import org.apache.commons.math3.analysis.function.Sin
 
 object lemmas:
   /**
@@ -24,6 +25,9 @@ object lemmas:
   // todo: document
   given [A <: Int]: Evidence[(A - 1) < A] = guaranteed
 
+  // todo: remove
+  given [A <: Int, B <: Int](using Evidence[A IsIndexFor B]): Evidence[A & Singleton IsIndexFor B] = guaranteed
+
   /**
    * for any two integers > 0 the sum of them will be > 0
    */
@@ -43,3 +47,5 @@ object lemmas:
    * for any integers A minus A will do nothing for B - C
    */
   given [A <: Int, B <: Int, C <: Int]: =:=[A + (B - A - C), B - C] = <:<.refl.asInstanceOf
+
+  given [A <: Int, B <: Int]: =:=[A - (A - B), B] = <:<.refl.asInstanceOf

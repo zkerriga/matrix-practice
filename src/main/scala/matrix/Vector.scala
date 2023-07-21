@@ -25,7 +25,7 @@ trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[S
   def ++[S <: Int, B >: A](other: Vector[S, B]): Vector[Size + S, B]
 
   def head: A = apply(0)
-  def last: A = apply[Size - 1]((size - 1).asInstanceOf[Size - 1])
+  def last: A = apply[(Size - 1) & Singleton]((size - 1).asInstanceOf[(Size - 1) & Singleton])
 
   infix def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C]              = map(_ * scalar)
   infix def +[B, C](other: Vector[Size, B])(using HAdd[A, B, C]): Vector[Size, C] = Vector.map2(this, other)(_ + _)
