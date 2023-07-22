@@ -11,14 +11,9 @@ import scala.math.Ordering.Implicits.*
 
 trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[Size > 0]):
   def apply[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Size]): A
-  def tail: Option[Vector[Size - 1, A]]
+  def tail: Either[Size =:= 1, Vector[Size - 1, A]]
   def tail(using Evidence[Size > 1]): Vector[Size - 1, A]
-  def init: Option[Vector[Size - 1, A]]
-  def slice[From <: Int, To <: Int](from: From, to: To)(using
-    Evidence[(To - From) > 0],
-    Evidence[From IsIndexFor Size],
-    Evidence[(To - 1) IsIndexFor Size],
-  ): Vector[To - From, A]
+  def init: Either[Size =:= 1, Vector[Size - 1, A]]
 
   def +:[B >: A](a: B): Vector[Size + 1, B]
   def :+[B >: A](a: B): Vector[Size + 1, B]
@@ -67,37 +62,32 @@ trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[S
   )
 
 object Vector:
+  extension [Size <: Int](size: Size)
+    private infix def |-[S <: Int](s: S): Size - S = (size - s).asInstanceOf
+    private infix def |+[S <: Int](s: S): Size + S = (size + s).asInstanceOf
+
   private class Impl[Size <: Int, +A](size: Size, vec: StdVec[A])(using Evidence[Size > 0])
       extends Vector[Size, A](size):
     def apply[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Size]): A =
       vec(index)
 
-    def tail: Option[Vector[Size - 1, A]] =
-      Option.when(size > 1)(Impl((size - 1).asInstanceOf[Size - 1], vec.tail)(using guaranteed))
+    def tail: Either[Size =:= 1, Vector[Size - 1, A]] =
+      Either.cond(size > 1, Impl(size |- 1, vec.tail)(using guaranteed), sameGuaranteed)
+
     def tail(using Evidence[Size > 1]): Vector[Size - 1, A] =
-      Impl((size - 1).asInstanceOf[Size - 1], vec.tail)
+      Impl(size |- 1, vec.tail)
 
-    def init: Option[Vector[Size - 1, A]] =
-      Option.when(size > 1)(Impl((size - 1).asInstanceOf[Size - 1], vec.init)(using guaranteed))
-
-    def slice[From <: Int, To <: Int](from: From, to: To)(using
-      Evidence[(To - From) > 0],
-      Evidence[From IsIndexFor Size],
-      Evidence[(To - 1) IsIndexFor Size],
-    ): Vector[To - From, A] =
-      Impl((to - from).asInstanceOf[To - From], vec.slice(from, to))
+    def init: Either[Size =:= 1, Vector[Size - 1, A]] =
+      Either.cond(size > 1, Impl(size |- 1, vec.init)(using guaranteed), sameGuaranteed)
 
     def +:[B >: A](a: B): Vector[Size + 1, B] =
-      Impl((size + 1).asInstanceOf[Size + 1], a +: vec)
+      Impl(size |+ 1, a +: vec)
     def :+[B >: A](a: B): Vector[Size + 1, B] =
-      Impl((size + 1).asInstanceOf[Size + 1], vec :+ a)
+      Impl(size |+ 1, vec :+ a)
 
     def ++[S <: Int, B >: A](other: Vector[S, B]): Vector[Size + S, B] =
       import other.sizeEvidence
-      Impl(
-        (size + other.size).asInstanceOf[Size + S],
-        vec ++ StdVec.tabulate(other.size)(index => other(index)(using guaranteed)),
-      )
+      Impl(size |+ other.size, vec ++ StdVec.tabulate(other.size)(index => other(index)(using guaranteed)))
 
     def map[B](f: A => B): Vector[Size, B] =
       Impl(size, vec.map(f))

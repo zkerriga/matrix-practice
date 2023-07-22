@@ -10,3 +10,5 @@ infix type IsIndexFor[I <: Int, Size <: Int] = I >= 0 && I < Size
 
 private[matrix] def guaranteed[Condition <: Boolean]: Evidence[Condition] =
   <:<.refl.asInstanceOf[Evidence[Condition]]
+
+private[matrix] def sameGuaranteed[A, B]: =:=[A, B] = <:<.refl.asInstanceOf

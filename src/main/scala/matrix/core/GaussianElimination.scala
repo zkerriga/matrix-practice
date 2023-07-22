@@ -42,23 +42,31 @@ private[matrix] object GaussianElimination:
     def asS[S2 <: Int](using S =:= S2): F[S2, A] =
       summon[S =:= S2].liftCo[[s] =>> F[s & Int, A]](fa)
 
+  given [A, Size <: Int](using Size =:= 1): Conversion[Vector[1, A], Vector[Size, A]] =
+    v1 => summon[Size =:= 1].liftContra[[s] =>> Vector[s & Int, A]](v1)
+
+  given [A, H <: Int, H2 <: Int, W <: Int](using H =:= H2): Conversion[Matrix[H, W, A], Matrix[H2, W, A]] =
+    mH => summon[H =:= H2].liftCo[[h] =>> Matrix[h & Int, W, A]](mH)
+
   def moveNonZeroLeadRowToTop[H <: Int, W <: Int, A: Zero](matrix: Matrix[H, W, A]): Matrix[H, W, A] = {
     val topVector = matrix.topRow
     if topVector.head != Zero.of[A] then matrix
     else
-      matrix.topTail.fold(matrix) { tailMatrix =>
+      matrix.topTail.toOption.fold(matrix) { tailMatrix =>
         @tailrec
         def moving[I <: Int](left: Matrix[H - I, W, A], skipped: Matrix[I, W, A]): Matrix[H, W, A] = {
           val topVector       = left.topRow
           val maybeTailMatrix = left.topTail
           if topVector.head == Zero.of[A] then
             maybeTailMatrix match
-              case Some(tailMatrix) => moving(tailMatrix.asH[H - (I + 1)], skipped.addDown(topVector))
-              case None             => matrix
+              case Right(tailMatrix) => moving(tailMatrix.asH[H - (I + 1)], skipped.addDown(topVector))
+              case _                 => matrix
           else
             (maybeTailMatrix match
-              case Some(tailMatrix) => tailMatrix.addTop(skipped).asH[H - 1]
-              case None             => skipped.asInstanceOf[Matrix[H - 1, W, A]]
+              case Right(tailMatrix) => tailMatrix.addTop(skipped).asH[H - 1]
+              case Left(is1) =>
+                given =:=[H - I, 1] = is1
+                skipped: Matrix[H - 1, W, A]
             ).addTop(topVector).asH[H]
         }
         moving[1](tailMatrix, Matrix { Vector.of(topVector) })
@@ -67,30 +75,41 @@ private[matrix] object GaussianElimination:
 
   def onZeroColumn[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One](
     height: H,
-    maybeRightMatrixToProcess: Option[Matrix[H, W, A]],
-  )(using Evidence[H > 0]): SubMatrixResult[H, W + 1, A] =
+    maybeRightMatrixToProcess: Either[W =:= 1, Matrix[H, W - 1, A]],
+  )(using Evidence[H > 0]): SubMatrixResult[H, W, A] =
     val zero                     = Zero.of[A]
     val zeroColumn: Vector[H, A] = Vector.fill(height)(zero)
     maybeRightMatrixToProcess match
-      case Some(rightMatrixToProcess) =>
+      case Right(rightMatrixToProcess) =>
         val SubMatrixResult(rightMatrix, toBeSubtractedAbove) = recursive(rightMatrixToProcess)
         SubMatrixResult(rightMatrix.addLeft(zeroColumn), toBeSubtractedAbove)
-      case None =>
-        SubMatrixResult(Matrix(zeroColumn.map(Vector.of[A](_).asInstanceOf[Vector[W + 1, A]])), StdVector.empty)
+      case Left(is1) =>
+        val wIs1: Vector[1, A] =:= Vector[W, A] = is1.liftContra[[s] =>> Vector[s & Int, A]]
+        SubMatrixResult(
+          Matrix(zeroColumn.map(zero => wIs1(Vector.of[A](zero)))),
+          StdVector.empty,
+        )
 
-  def desplitTop[H <: Int, W <: Int, A](top: Vector[W, A], tail: Option[Matrix[H - 1, W, A]]): Matrix[H, W, A] =
+  def desplitTop[H <: Int, W <: Int, A](
+    top: Vector[W, A],
+    tail: Either[H =:= 1, Matrix[H - 1, W, A]],
+  ): Matrix[H, W, A] =
     tail match
-      case Some(tailMatrix) => tailMatrix.addTop(top).asH[H]
-      case None             => Matrix(Vector.of[Vector[W, A]](top).asInstanceOf[Vector[H, Vector[W, A]]])
+      case Right(tailMatrix) => tailMatrix.addTop(top).asH[H]
+      case Left(is1) =>
+        given =:=[H, 1] = is1
+        Matrix(Vector.of(top))
 
-  def desplit[Size <: Int, A](lead: A, tail: Option[Vector[Size - 1, A]]): Vector[Size, A] =
+  def desplit[Size <: Int, A](lead: A, tail: Either[Size =:= 1, Vector[Size - 1, A]]): Vector[Size, A] =
     tail match
-      case Some(tailVector) => (lead +: tailVector).asS[Size]
-      case None             => Vector.of(lead).asInstanceOf[Vector[Size, A]]
+      case Right(tailVector) => (lead +: tailVector).asS[Size]
+      case Left(is1) =>
+        given =:=[Size, 1] = is1
+        Vector.of(lead)
 
   def dropZeroColumn[H <: Int, W <: Int, A](
     topVectorTail: Vector[W - 1, A],
-    maybeTailMatrix: Option[Matrix[H - 1, W, A]],
+    maybeTailMatrix: Either[H =:= 1, Matrix[H - 1, W, A]],
   ): Matrix[H, W - 1, A] =
     import topVectorTail.sizeEvidence
     desplitTop(
@@ -102,8 +121,8 @@ private[matrix] object GaussianElimination:
 
   def subtractDown[H <: Int, W <: Int, A: Div: Mul: Sub: Zero](
     topVectorLead: A,
-    maybeTopVectorTail: Option[Vector[W - 1, A]],
-    maybeTailMatrix: Option[Matrix[H - 1, W, A]],
+    maybeTopVectorTail: Either[W =:= 1, Vector[W - 1, A]],
+    maybeTailMatrix: Either[H =:= 1, Matrix[H - 1, W, A]],
   ): Option[Matrix[H - 1, W - 1, A]] =
     map2(maybeTopVectorTail, maybeTailMatrix) { (topVectorTail, tailMatrix) =>
       import topVectorTail.sizeEvidence
@@ -157,8 +176,8 @@ private[matrix] object GaussianElimination:
 
   def onDownSubtraction[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One](
     topLead: A,
-    maybeTopTail: Option[Vector[W - 1, A]],
-    maybeDownRightMatrixToProcess: Option[Matrix[H - 1, W - 1, A]],
+    maybeTopTail: Either[W =:= 1, Vector[W - 1, A]],
+    maybeDownRightMatrixToProcess: Either[H =:= 1, Matrix[H - 1, W - 1, A]],
   ): SubMatrixResult[H, W, A] =
     maybeDownRightMatrixToProcess match
       case None =>

@@ -18,7 +18,7 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
   def getColumn[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Width]): Vector[Height, A]
 
   def topRow: Vector[Width, A] = getRow(0)
-  def topTail: Option[Matrix[Height - 1, Width, A]]
+  def topTail: Either[Height =:= 1, Matrix[Height - 1, Width, A]]
   def leftTail(using Evidence[Width > 1]): Matrix[Height, Width - 1, A]
 
   def addTop[B >: A](top: Vector[Width, B]): Matrix[Height + 1, Width, B]
@@ -94,7 +94,7 @@ object Matrix:
     def getColumn[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Width]): Vector[Height, A] =
       Vector.tabulate[Height, A](height) { row => getRow(row).apply[I](index) }
 
-    def topTail: Option[Matrix[Height - 1, Width, A]] =
+    def topTail: Either[Height =:= 1, Matrix[Height - 1, Width, A]] =
       table.tail.map(Matrix(_))
     def leftTail(using Evidence[Width > 1]): Matrix[Height, Width - 1, A] =
       Matrix(table.map(_.tail))
