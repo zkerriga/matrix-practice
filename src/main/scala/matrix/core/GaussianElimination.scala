@@ -82,7 +82,7 @@ private[matrix] object GaussianElimination:
     maybeRightMatrixToProcess match
       case Right(rightMatrixToProcess) =>
         val SubMatrixResult(rightMatrix, toBeSubtractedAbove) = recursive(rightMatrixToProcess)
-        SubMatrixResult(rightMatrix.addLeft(zeroColumn), toBeSubtractedAbove)
+        SubMatrixResult(rightMatrix.addLeft(zeroColumn).asW[W], toBeSubtractedAbove)
       case Left(is1) =>
         val wIs1: Vector[1, A] =:= Vector[W, A] = is1.liftContra[[s] =>> Vector[s & Int, A]]
         SubMatrixResult(
@@ -123,16 +123,24 @@ private[matrix] object GaussianElimination:
     topVectorLead: A,
     maybeTopVectorTail: Either[W =:= 1, Vector[W - 1, A]],
     maybeTailMatrix: Either[H =:= 1, Matrix[H - 1, W, A]],
-  ): Option[Matrix[H - 1, W - 1, A]] =
-    map2(maybeTopVectorTail, maybeTailMatrix) { (topVectorTail, tailMatrix) =>
-      import topVectorTail.sizeEvidence
-      tailMatrix.mapRows { tailMatrixRow =>
-        val rowLead                   = tailMatrixRow.head
-        val rowTail: Vector[W - 1, A] = tailMatrixRow.tail
-        if rowLead == Zero.of[A] then rowTail
-        else Vector.map2(rowTail, topVectorTail)(subtractBy(rowLead / topVectorLead))
-      }
-    }
+  ): Either[H =:= 1 | W =:= 1 | (H =:= 1, W =:= 1), Matrix[H - 1, W - 1, A]] =
+    maybeTopVectorTail match
+      case Right(topVectorTail) =>
+        maybeTailMatrix.map { tailMatrix =>
+          import topVectorTail.sizeEvidence
+          tailMatrix.mapRows { tailMatrixRow =>
+            val rowLead                   = tailMatrixRow.head
+            val rowTail: Vector[W - 1, A] = tailMatrixRow.tail
+            if rowLead == Zero.of[A] then rowTail
+            else Vector.map2(rowTail, topVectorTail)(subtractBy(rowLead / topVectorLead))
+          }
+        }
+      case Left(wIs1) =>
+        Left {
+          maybeTailMatrix match
+            case Left(hIs1) => hIs1 -> wIs1
+            case _          => wIs1
+        }
 
   def sliceByPattern[Size <: Int, PatternSize <: Int, A](
     vector: Vector[Size, A],
@@ -168,35 +176,53 @@ private[matrix] object GaussianElimination:
     }
     maybeRest :: subtractedPartsList
 
-  def divideByLead[W <: Int, A: Div](lead: A, maybeVector: Option[Vector[W, A]]): Option[Vector[W, A]] =
+  def divideByLead[W <: Int, E, A: Div](lead: A, maybeVector: Either[E, Vector[W, A]]): Either[E, Vector[W, A]] =
     maybeVector.map(_.map(_ / lead))
 
-  def composeVectorParts[Size <: Int, A: Zero](parts: NonEmptyList[Option[Vector[_, A]]]): Option[Vector[Size, A]] =
+  def composeVectorParts[Size <: Int, A: Zero](
+    parts: NonEmptyList[Option[Vector[_, A]]]
+  ): Either[Size =:= 1, Vector[Size - 1, A]] =
     ??? // parts.map(desplit(Zero.of[A], _)).reduce((l, r) => l ++ r).tail
 
   def onDownSubtraction[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One](
     topLead: A,
     maybeTopTail: Either[W =:= 1, Vector[W - 1, A]],
-    maybeDownRightMatrixToProcess: Either[H =:= 1, Matrix[H - 1, W - 1, A]],
+    maybeDownRightMatrixToProcess: Either[H =:= 1 | W =:= 1 | (H =:= 1, W =:= 1), Matrix[H - 1, W - 1, A]],
   ): SubMatrixResult[H, W, A] =
     maybeDownRightMatrixToProcess match
-      case None =>
-        val maybeDividedTail = divideByLead(topLead, maybeTopTail)
-        SubMatrixResult(
-          desplitTop(desplit(One.of[A], maybeDividedTail), None),
-          StdVector(NonEmptyList(maybeDividedTail)),
-        )
-      case Some(downRightMatrixToProcess) =>
+      case Left(evidence) =>
+        evidence match
+          case hIs1: =:=[H, 1] =>
+            val maybeDividedTail = divideByLead(topLead, maybeTopTail)
+            SubMatrixResult(
+              desplitTop(desplit(One.of[A], maybeDividedTail), Left(hIs1)),
+              StdVector(NonEmptyList(maybeDividedTail.toOption)),
+            )
+          case wIs1: =:=[W, 1] =>
+            ???
+
+          case (hIs1, wIs1) =>
+            SubMatrixResult(
+              desplitTop(desplit(One.of[A], ???), Left(hIs1)),
+              ???,
+            )
+
+      // val maybeDividedTail = divideByLead(topLead, maybeTopTail)
+      // SubMatrixResult(
+      //   desplitTop(desplit(One.of[A], maybeDividedTail), Left(hIs1)),
+      //   StdVector(NonEmptyList(maybeDividedTail.toOption)),
+      // )
+      case Right(downRightMatrixToProcess) =>
         val SubMatrixResult(downRightMatrix, toSubtract) = recursive(downRightMatrixToProcess)
 
         val maybeSubtractedTailParts: Option[NonEmptyList[Option[Vector[_, A]]]] =
-          maybeTopTail.map(subtractBack(toSubtract, _))
+          maybeTopTail.map(subtractBack(toSubtract, _)).toOption
 
         val maybeDividedSubtractedTailParts: Option[NonEmptyList[Option[Vector[_, A]]]] =
           ??? // maybeSubtractedTailParts.map(_.map(divideByLead(topLead, _)))
 
-        val maybeComposedVectorTail: Option[Vector[W - 1, A]] =
-          maybeDividedSubtractedTailParts.flatMap(composeVectorParts)
+        val maybeComposedVectorTail: Either[W =:= 1, Vector[W - 1, A]] =
+          ??? // maybeDividedSubtractedTailParts.flatMap(composeVectorParts)
 
         val topVector: Vector[W, A] = desplit(One.of[A], maybeComposedVectorTail)
         val zeroedDownMatrix        = downRightMatrix.mapRows(Zero.of[A] +: _).asW[W]
@@ -229,21 +255,22 @@ private[matrix] object GaussianElimination:
 
 @main def test = {
   val matrix: Matrix[4, 2, Double] = Matrix {
-    Vector.of(
-      Vector.of(0.0, 1.0),
-      Vector.of(0.0, 2.0),
-      Vector.of(1.0, 2.0),
-      Vector.of(0.0, 3.0),
+    Vector.of[4, Vector[2, Double]](
+      Vector.of[2, Double](0.0, 1.0),
+      Vector.of[2, Double](0.0, 2.0),
+      Vector.of[2, Double](1.0, 2.0),
+      Vector.of[2, Double](0.0, 3.0),
     )
   }
 
   val matrix2: Matrix[4, 2, Double] = Matrix {
-    Vector.of(
-      Vector.of(0.0, 0.0),
-      Vector.of(0.0, 0.0),
-      Vector.of(0.0, 0.0),
-      Vector.of(0.0, 0.0),
+    Vector.of[4, Vector[2, Double]](
+      Vector.of[2, Double](0.0, 0.0),
+      Vector.of[2, Double](0.0, 0.0),
+      Vector.of[2, Double](0.0, 0.0),
+      Vector.of[2, Double](0.0, 0.0),
     )
   }
   println(GaussianElimination.recursive(matrix2))
+
 }
