@@ -255,6 +255,18 @@ object UpSubtraction {
             case Tail(bTail) =>
               Tail(emap2(aTail, bTail) { (aVector, bVector) => Vector.map2(aVector, bVector)(f) })
 
+    def combine[W <: Int](aNode: Node[W, A], bNode: Node[W - 1, A])(f: (A, A) => A): Node[W, A] =
+      aNode match
+        case Skip(a, next) =>
+          Skip(a, map2(next, bNode)(f))
+        case Zero(0, next) =>
+          Zero(0, map2(next, bNode)(f))
+        case One(1, next) =>
+          One(1, map2(next, bNode)(f))
+        case Tail(tail) =>
+          val realTail = tail.getOrElse(throw RuntimeException("todo: realTal bad"))
+          Zero(0, map2(Tail(l2(realTail.tail)), bNode)(f))
+
   import Node.*
 
   type W = 8
@@ -306,11 +318,11 @@ object UpSubtraction {
                   lead,
                   processed.leftMap(wIs1 => Tail[W - 1, A](Left(l3(wIs1)))).merge,
                 )
-              case downNode @ Zero(0, next) =>
+              case Zero(0, next) =>
                 val processed: Either[W =:= 1, Node[W - 1, A]] =
                   tail.map(tail => process(tail.head, tail.tail, nextTrap))
                 val subtracted: Either[W =:= 1, Node[W - 1, A]] = processed.map { processed =>
-                  Node.map2(processed, downNode /* todo: why zero? */ ) { (processedX, downX) =>
+                  Node.combine(processed, next) { (processedX, downX) =>
                     processedX - downX * lead
                   }
                 }
@@ -318,11 +330,11 @@ object UpSubtraction {
                   lead = 0,
                   subtracted.leftMap(wIs1 => Tail[W - 1, A](Left(l3(wIs1)))).merge,
                 )
-              case downNode @ One(1, next) =>
+              case One(1, next) =>
                 val processed: Either[W =:= 1, Node[W - 1, A]] =
                   tail.map(tail => process(tail.head, tail.tail, nextTrap))
                 val subtracted = processed.map { processed =>
-                  Node.map2(processed, downNode) { (processedX, downX) =>
+                  Node.combine(processed, next) { (processedX, downX) =>
                     processedX - downX * lead
                   }
                 }
@@ -352,20 +364,20 @@ object UpSubtraction {
                   lead,
                   Tail[W - 1, A](l2(tail)),
                 )
-              case downNode @ Zero(0, next) =>
+              case Zero(0, next) =>
                 val processed: Node[W - 1, A] = Tail[W - 1, A](l2(tail))
                 val subtracted: Node[W - 1, A] =
-                  Node.map2(processed, downNode /* todo: why zero? */ ) { (processedX, downX) =>
+                  Node.combine(processed, next) { (processedX, downX) =>
                     processedX - downX * lead
                   }
                 Zero(
                   lead = 0,
                   subtracted,
                 )
-              case downNode @ One(1, next) =>
+              case One(1, next) =>
                 val processed: Node[W - 1, A] = Tail[W - 1, A](l2(tail))
                 val subtracted =
-                  Node.map2(processed, downNode) { (processedX, downX) =>
+                  Node.combine(processed, next) { (processedX, downX) =>
                     processedX - downX * lead
                   }
                 Zero(lead = 0, subtracted)
