@@ -37,6 +37,7 @@ object lemmas:
    * for any integer B minus and plus together do nothing with the A
    */
   given [A <: Int, B <: Int]: =:=[A - B + B, A] = sameGuaranteed
+  given [A <: Int, B <: Int]: =:=[A + B - B, A] = sameGuaranteed
 
   given [A <: Int, B <: Int, C <: Int](using (A - B) =:= C): =:=[B, A - C] = sameGuaranteed
 

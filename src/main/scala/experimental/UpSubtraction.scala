@@ -2,11 +2,20 @@ package experimental
 
 import matrix.{Vector, Matrix}
 import scala.compiletime.ops.int.*
-import matrix.guaranteed
 import matrix.Evidence
 
 object UpSubtraction {
   extension [R](a: R) def asRight[L]: Either[L, R] = Right(a)
+  extension [L, R](either: Either[L, R])
+    def leftMap[L2](f: L => L2): Either[L2, R] = either match
+      case Left(value)  => Left(f(value))
+      case Right(value) => value.asRight
+
+  def emap2[E, A, B, C](aE: Either[E, A], bE: Either[E, B])(f: (A, B) => C): Either[E, C] =
+    (aE, bE) match
+      case (Right(a), Right(b)) => Right(f(a, b))
+      case (Left(error), _)     => Left(error)
+      case (_, Left(error))     => Left(error)
 
   // enum Trapezoid[H <: Int, W <: Int, +A]:
   //   case Empty[W <: Int]()                                         extends Trapezoid[0, W, Nothing]
@@ -227,7 +236,24 @@ object UpSubtraction {
     case Skip[Size <: Int, A](a: A, next: Node[Size - 1, A])             extends Node[Size, A]
     case Zero[Size <: Int, A](lead: 0, next: Node[Size - 1, A])          extends Node[Size, A]
     case One[Size <: Int, A](lead: 1, next: Node[Size - 1, A])           extends Node[Size, A]
-    case Tail[Size <: Int, A](tail: Either[Size =:= 1, Vector[Size, A]]) extends Node[Size, A]
+    case Tail[Size <: Int, A](tail: Either[Size =:= 0, Vector[Size, A]]) extends Node[Size, A]
+
+  object Node:
+    def map2[W <: Int](aNode: Node[W, A], bNode: Node[W, A])(f: (A, A) => A): Node[W, A] =
+      aNode match
+        case Skip(aA, aNext) =>
+          bNode match // todo: other cases?
+            case Skip(bA, bNext) => Skip(f(aA, bA), map2(aNext, bNext)(f))
+        case Zero(0, aNext) =>
+          bNode match // todo: other cases?
+            case Zero(0, bNext) => Zero(0, map2(aNext, bNext)(f))
+        case One(aLead, aNext) =>
+          bNode match // todo: other cases?
+            case One(1, bNext) => One(1, map2(aNext, bNext)(f))
+        case Tail(aTail) =>
+          bNode match // todo: other cases?
+            case Tail(bTail) =>
+              Tail(emap2(aTail, bTail) { (aVector, bVector) => Vector.map2(aVector, bVector)(f) })
 
   import Node.*
 
@@ -258,27 +284,106 @@ object UpSubtraction {
   val nodeTrap: NodeTrap[8, A] =
     Next[8, A](down3, Next[7, A](L(down4), Next[6, A](down5, Next[5, A](down6, Next[4, A](L(down7), First(L(down8)))))))
 
-  private def guaranteed[Condition <: Boolean]: Evidence[Condition] =
-    <:<.refl.asInstanceOf[Evidence[Condition]]
+  def l2[W <: Int, A](a: Either[W =:= 1, Vector[W - 1, A]]): Either[W - 1 =:= 0, Vector[W - 1, A]] = a.asInstanceOf
+  def l3[W <: Int](a: =:=[W, 1]): =:=[W - 1, 0]                                                    = a.asInstanceOf
 
-  given [A <: Int]: =:=[A - 1 + 1, A + 1 - 1] = <:<.refl.asInstanceOf
-
-  def process[W <: Int](lead: A, tail: Vector[W, A], trap: NodeTrap[W, A]): Node[W + 1, A] =
+  def process[W <: Int](lead: A, tail: Either[W =:= 1, Vector[W - 1, A]], trap: NodeTrap[W - 1, A]): Node[W, A] =
     trap match
-      case Next(down, next) =>
-        val leadOfTail = tail.head
-        val tailOfTail = tail.tail(using guaranteed) // todo: because trap has W - 1
-        val processed  = process(leadOfTail, tailOfTail, next)
-        val processed2 = summon[(W - 1 + 1) =:= (W + 1 - 1)].liftCo[[x] =>> Node[x & Int, A]](processed)
+      case Next(down, nextTrap) =>
         down match
-          case Z() => Skip[W + 1, A](lead, processed2)
+          case Z() =>
+            val processed: Either[W =:= 1, Node[W - 1, A]] = tail.map(tail => process(tail.head, tail.tail, nextTrap))
+            Skip(
+              lead,
+              processed.leftMap(wIs1 => Tail[W - 1, A](Left(l3(wIs1)))).merge,
+            )
           case L(node) =>
             node match
-              case Skip(a, next) => Skip[W + 1, A](lead, processed2)
-              case Zero(0, next) => ???
-              case One(1, next)  => ???
-              case Tail(tail2)   => ??? // todo: random, fix
-      case First(down) => ???
+              case Skip(a, next) =>
+                val processed: Either[W =:= 1, Node[W - 1, A]] =
+                  tail.map(tail => process(tail.head, tail.tail, nextTrap))
+                Skip(
+                  lead,
+                  processed.leftMap(wIs1 => Tail[W - 1, A](Left(l3(wIs1)))).merge,
+                )
+              case downNode @ Zero(0, next) =>
+                val processed: Either[W =:= 1, Node[W - 1, A]] =
+                  tail.map(tail => process(tail.head, tail.tail, nextTrap))
+                val subtracted: Either[W =:= 1, Node[W - 1, A]] = processed.map { processed =>
+                  Node.map2(processed, downNode /* todo: why zero? */ ) { (processedX, downX) =>
+                    processedX - downX * lead
+                  }
+                }
+                Zero(
+                  lead = 0,
+                  subtracted.leftMap(wIs1 => Tail[W - 1, A](Left(l3(wIs1)))).merge,
+                )
+              case downNode @ One(1, next) =>
+                val processed: Either[W =:= 1, Node[W - 1, A]] =
+                  tail.map(tail => process(tail.head, tail.tail, nextTrap))
+                val subtracted = processed.map { processed =>
+                  Node.map2(processed, downNode) { (processedX, downX) =>
+                    processedX - downX * lead
+                  }
+                }
+                Zero(lead = 0, subtracted.leftMap(wIs1 => Tail[W - 1, A](Left(l3(wIs1)))).merge)
+              case Tail(downTail) =>
+                Zero[W, A](
+                  lead = 0,
+                  Tail[W - 1, A] {
+                    emap2(downTail, l2(tail)) { (downVector, tailVector) =>
+                      Vector.map2(downVector, tailVector) { (downX, tailX) =>
+                        tailX - downX * lead
+                      }
+                    }
+                  },
+                )
+      case First(down) =>
+        down match
+          case Z() =>
+            Skip[W, A](
+              lead,
+              Tail[W - 1, A](l2(tail)),
+            )
+          case L(node) =>
+            node match
+              case Skip(a, next) =>
+                Skip(
+                  lead,
+                  Tail[W - 1, A](l2(tail)),
+                )
+              case downNode @ Zero(0, next) =>
+                val processed: Node[W - 1, A] = Tail[W - 1, A](l2(tail))
+                val subtracted: Node[W - 1, A] =
+                  Node.map2(processed, downNode /* todo: why zero? */ ) { (processedX, downX) =>
+                    processedX - downX * lead
+                  }
+                Zero(
+                  lead = 0,
+                  subtracted,
+                )
+              case downNode @ One(1, next) =>
+                val processed: Node[W - 1, A] = Tail[W - 1, A](l2(tail))
+                val subtracted =
+                  Node.map2(processed, downNode) { (processedX, downX) =>
+                    processedX - downX * lead
+                  }
+                Zero(lead = 0, subtracted)
+              case Tail(downTail) =>
+                Zero[W, A](
+                  lead = 0,
+                  Tail[W - 1, A] {
+                    emap2(downTail, l2(tail)) { (downVector, tailVector) =>
+                      Vector.map2(downVector, tailVector) { (downX, tailX) =>
+                        tailX - downX * lead
+                      }
+                    }
+                  },
+                )
 
-  val result: Node[9, A] = process(line2Lead, line2, nodeTrap)
+  val result: Node[9, A] = process(line2Lead, Right(line2), nodeTrap)
+}
+
+@main def upTest = {
+  println(UpSubtraction.result)
 }
