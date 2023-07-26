@@ -3,6 +3,10 @@ package experimental
 import matrix.{Vector, Matrix}
 import scala.compiletime.ops.int.*
 import matrix.Evidence
+import math.HDiv.Div
+import math.syntax.*
+import math.HSub.Sub
+import math.Zero as ZeroT
 
 object UpSubtraction {
   extension [R](a: R) def asRight[L]: Either[L, R] = Right(a)
@@ -23,6 +27,7 @@ object UpSubtraction {
   //   case Node[H <: Int, W <: Int, A](lead: A, tail: Vector[W - H, A], next: Trapezoid[H - 1, W, A])
   //       extends Trapezoid[H, W, A]
 
+  /*
   enum Trapezoid[BaseW <: Int, D <: Int, H <: Int, W <: Int, +A]:
     case Empty[BaseW <: Int]() extends Trapezoid[BaseW, 0, 0, BaseW + 1, Nothing]
     case Zero[BaseW <: Int, D <: Int, H <: Int, W <: Int, A](next: Trapezoid[BaseW, D, H, W, A])
@@ -49,6 +54,7 @@ object UpSubtraction {
     case class Node[BaseW <: Int, D <: Int, A](lead: A, tail: Vector[BaseW - D, A], next: Trap[BaseW, D - 1, A])
         extends Trap[BaseW, D, A]
   end Trap
+   */
 
   // import Trap.*
 
@@ -232,12 +238,33 @@ object UpSubtraction {
   //   case Lead[Size <: Int, A](lead: A, tail: Either[Size =:= 1, VectorNode[Size - 1, A]]) extends VectorNode[Size, A]
   //   case Tail[Size <: Int, A](vector: Vector[Size, A])                                    extends VectorNode[Size, A]
 
-  enum Node[Size <: Int, A]:
-    case Skip[Size <: Int, A](a: A, next: Node[Size - 1, A])             extends Node[Size, A]
-    case Zero[Size <: Int, A](lead: 0, next: Node[Size - 1, A])          extends Node[Size, A]
-    case One[Size <: Int, A](lead: 1, next: Node[Size - 1, A])           extends Node[Size, A]
-    case Tail[Size <: Int, A](tail: Either[Size =:= 0, Vector[Size, A]]) extends Node[Size, A]
+  sealed trait Node[Size <: Int, +A]:
+    def divideBy(lead: A)(using Div[A]): Node[Size, A]
 
+  object Node:
+    case class Skip[Size <: Int, A](a: A, next: Node[Size - 1, A]) extends Node[Size, A]:
+      def divideBy(lead: A)(using Div[A]): Node[Size, A] = Skip(a / lead, next.divideBy(lead))
+
+    case class Zero[Size <: Int, A](zero: A, next: Node[Size - 1, A]) extends Node[Size, A]:
+      def divideBy(lead: A)(using Div[A]): Node[Size, A] = Zero(zero, next.divideBy(lead))
+
+    case class Tail[Size <: Int, A](tail: Either[Size =:= 0, Vector[Size, A]]) extends Node[Size, A]:
+      def divideBy(lead: A)(using Div[A]): Node[Size, A] = Tail(tail.map(_.map(_ / lead)))
+
+  // enum Node[Size <: Int, +A]:
+  //   case Skip(a: A, next: Node[Size - 1, A])             extends Node[Size, A]
+  //   case Zero(lead: 0, next: Node[Size - 1, A])          extends Node[Size, A]
+  //   case Tail(tail: Either[Size =:= 0, Vector[Size, A]]) extends Node[Size, A]
+
+  enum Down[Size <: Int, A]:
+    case ZeroLine()
+    case NodeLine(node: Node[Size, A])
+
+  enum NodeTrap[W <: Int, A]:
+    case First(down: Down[W, A])                          extends NodeTrap[W, A]
+    case Next(down: Down[W, A], next: NodeTrap[W - 1, A]) extends NodeTrap[W, A]
+
+  /*
   object Node:
     def map2[W <: Int](aNode: Node[W, A], bNode: Node[W, A])(f: (A, A) => A): Node[W, A] =
       aNode match
@@ -269,7 +296,7 @@ object UpSubtraction {
 
   import Node.*
 
-  type W = 8
+  type W = 9
   val line2Lead: A        = 20
   val line2: Vector[W, A] = Vector.of(21, 22, 23, 24, 25, 26, 27, 28)
 
@@ -277,21 +304,12 @@ object UpSubtraction {
     case Z[W <: Int, A]()                 extends Down[W, A]
     case L[W <: Int, A](node: Node[W, A]) extends Down[W, A]
 
-  import Down.*
-
-  val down3: Z[8, A] = Z() // zero
-  val down4: Node[7, A] =
-    One(1, Skip[6, A](32, Skip[5, A](33, Zero[4, A](0, Zero[3, A](0, Tail(Vector.of(36, 37).asRight))))))
-  val down5: Z[6, A]    = Z() // zero
-  val down6: Z[5, A]    = Z() // zero
-  val down7: Node[4, A] = One(1, Zero[3, A](0, Tail(Vector.of(42, 43).asRight)))
-  val down8: Node[3, A] = One(1, Tail(Vector.of(51, 52).asRight))
-
-  enum NodeTrap[W <: Int, A]:
-    case First[W <: Int, A](down: Down[W, A])                          extends NodeTrap[W, A]
-    case Next[W <: Int, A](down: Down[W, A], next: NodeTrap[W - 1, A]) extends NodeTrap[W, A]
-
-  import NodeTrap.*
+  val down3: Node[7, A] = FullZero() // zero
+  val down4: Node[6, A] = Skip[6, A](32, Skip[5, A](33, Zero[4, A](0, Zero[3, A](0, Tail(Vector.of(36, 37).asRight)))))
+  val down5: Node[5, A] = FullZero() // zero
+  val down6: Node[4, A] = FullZero() // zero
+  val down7: Node[3, A] = Zero[3, A](0, Tail(Vector.of(42, 43).asRight))
+  val down8: Node[2, A] = Tail(Vector.of(51, 52).asRight)
 
   val nodeTrap: NodeTrap[8, A] =
     Next[8, A](down3, Next[7, A](L(down4), Next[6, A](down5, Next[5, A](down6, Next[4, A](L(down7), First(L(down8)))))))
@@ -392,8 +410,89 @@ object UpSubtraction {
                     }
                   },
                 )
+   */
 
-  val result: Node[9, A] = process(line2Lead, Right(line2), nodeTrap)
+  def l2[W <: Int, A](a: Either[W =:= 1, Vector[W - 1, A]]): Either[W - 1 =:= 0, Vector[W - 1, A]] = a.asInstanceOf
+  def l3[W <: Int](a: =:=[W, 1]): =:=[W - 1, 0]                                                    = a.asInstanceOf
+  def l4[W <: Int, A](a: Either[W - 1 =:= 1, Vector[W - 1 - 1, A]]): Either[W - 2 =:= 0, Vector[W - 2, A]] =
+    a.asInstanceOf
+
+  def l5[W <: Int, A](a: Either[W - 2 =:= 0, Vector[W - 2, A]]): Either[W - 1 - 1 =:= 0, Vector[W - 1 - 1, A]]     = ???
+  def l6[W <: Int, A](a: Either[W - 1 =:= 1, Vector[W - 1 - 1, A]]): Either[W - 1 - 1 =:= 0, Vector[W - 1 - 1, A]] = ???
+  def l7[W <: Int, A](a: NodeTrap[W - 2 - 1, A]): NodeTrap[W - 1 - 2, A]                                           = ???
+//  def l5[W <: Int, A](a: Either[W =:= 1, Either[W - 2 =:= 0, A]]): Either[W =:= 1, A] = ???
+
+//  def c5[W <: Int, A](a: Either[W =:= 1, Either[W - 2 =:= 0, Vector[W - 2, A]]]): Either[W =:= 1, Vector[W - 2, A]] = {
+//    a match
+//      case Left(wIs1) => ???
+//      case Right(value) =>
+//        value match
+//          case Left(wIs2)  => ???
+//          case Right(vector) => vector.asRight
+//  }
+
+  import Node.*
+  import NodeTrap.*
+
+  def process[W <: Int, A: Div: Mul: Sub: ZeroT](
+    lead: A,
+    tail: Vector[W - 1, A],
+    trap: NodeTrap[W - 2, A],
+  ): Node[W - 1, A] =
+    trap match
+      case NodeTrap.First(down) =>
+        down match
+          case Down.ZeroLine() =>
+            val baseLead: A   = tail.head
+            val maybeBaseTail = l6(tail.tail)
+            Skip[W - 1, A](baseLead, Tail[W - 1 - 1, A](maybeBaseTail))
+          case Down.NodeLine(node) =>
+            node match
+              case Node.Skip(a, next)        => ??? // todo: looks like I don't need it
+              case Node.Zero(downLead, next) => ??? // todo: looks like I don't need it
+              case Node.Tail(maybeDownTail) =>
+                val baseLead: A   = tail.head
+                val maybeBaseTail = l4(tail.tail)
+                val upSubtracted =
+                  emap2(maybeBaseTail, maybeDownTail) { (baseTail, downTail) =>
+                    Vector.map2(baseTail, downTail) { (baseX, downX) => baseX - downX * baseLead }
+                  }
+                Zero[W - 1, A](ZeroT.of[A], Tail[W - 1 - 1, A](l5(upSubtracted)))
+
+      case NodeTrap.Next(down, next) =>
+        down match
+          case Down.ZeroLine() =>
+            val baseLead: A    = tail.head
+            val maybeBaseTail  = tail.tail
+            val maybeProcessed = maybeBaseTail.map { baseTail => process(baseLead, baseTail, l7(next)) }
+            Skip[W - 1, A](baseLead, ???)
+          case Down.NodeLine(node) =>
+            node match
+              case Skip(a, next)    => ???
+              case Zero(zero, next) => ???
+              case Tail(tail)       => ???
+
+  type W = 9
+  val line2Lead: A            = 20
+  val line2: Vector[W - 1, A] = Vector.of(21, 22, 23, 24, 25, 26, 27, 28)
+
+  val down3: Down[7, A] = Down.ZeroLine() // zero
+  val down4: Down[6, A] = Down.NodeLine {
+    Skip[6, A](32, Skip[5, A](33, Zero[4, A](0, Zero[3, A](0, Tail(Vector.of(36, 37).asRight)))))
+  }
+  val down5: Down[5, A] = Down.ZeroLine() // zero
+  val down6: Down[4, A] = Down.ZeroLine() // zero
+  val down7: Down[3, A] = Down.NodeLine {
+    Zero[3, A](0, Tail(Vector.of(42, 43).asRight))
+  }
+  val down8: Down[2, A] = Down.NodeLine {
+    Tail(Vector.of(51, 52).asRight[2 =:= 0])
+  }
+
+  val nodeTrap: NodeTrap[7, A] =
+    Next[7, A](down3, Next[6, A](down4, Next[5, A](down5, Next[4, A](down6, Next[3, A](down7, First(down8))))))
+
+  val result: Node[8, A] = process[9](line2Lead, line2.asRight, nodeTrap)
 }
 
 @main def upTest = {
