@@ -3,9 +3,8 @@ package experimental
 import matrix.{Vector, Matrix}
 import scala.compiletime.ops.int.*
 import matrix.Evidence
-import math.HDiv.Div
+import math.aliases.*
 import math.syntax.*
-import math.HSub.Sub
 import math.Zero as ZeroT
 
 object UpSubtraction {
@@ -62,8 +61,6 @@ object UpSubtraction {
   // val node1: Trapezoid[1, 1, 4, Int] = Node[1, 1, 4, Int](10, Vector.of(11, 12, 13), node0)
   // val node2: Trapezoid[2, 1, 4, Int] = Zero(node1)
   // val node3: Trapezoid[3, 2, 4, Int] = Node(30, Vector.of[Int](31), node2)
-
-  type A = Int
 
   // def build[BaseW <: Int, D <: Int, H <: Int, W <: Int](
   //   trapezoid: Trap[BaseW, D, A],
@@ -251,6 +248,10 @@ object UpSubtraction {
     case class Tail[Size <: Int, A](tail: Either[Size =:= 0, Vector[Size, A]]) extends Node[Size, A]:
       def divideBy(lead: A)(using Div[A]): Node[Size, A] = Tail(tail.map(_.map(_ / lead)))
 
+    def apply[W <: Int, A](e: Either[W =:= 1, Node[W - 1, A]]): Node[W - 1, A] = e match
+      case Left(wIs1)  => Tail(Left(l3(wIs1)))
+      case Right(node) => node
+
   // enum Node[Size <: Int, +A]:
   //   case Skip(a: A, next: Node[Size - 1, A])             extends Node[Size, A]
   //   case Zero(lead: 0, next: Node[Size - 1, A])          extends Node[Size, A]
@@ -435,43 +436,45 @@ object UpSubtraction {
   import NodeTrap.*
 
   def process[W <: Int, A: Div: Mul: Sub: ZeroT](
-    lead: A,
-    tail: Vector[W - 1, A],
-    trap: NodeTrap[W - 2, A],
-  ): Node[W - 1, A] =
+    base: Vector[W, A],
+    trap: NodeTrap[W - 1, A],
+  ): Node[W, A] =
     trap match
       case NodeTrap.First(down) =>
         down match
           case Down.ZeroLine() =>
-            val baseLead: A   = tail.head
-            val maybeBaseTail = l6(tail.tail)
-            Skip[W - 1, A](baseLead, Tail[W - 1 - 1, A](maybeBaseTail))
+            val baseLead: A   = base.head
+            val maybeBaseTail = base.tail
+            Skip[W, A](baseLead, Tail[W - 1, A](l2(maybeBaseTail)))
           case Down.NodeLine(node) =>
             node match
               case Node.Skip(a, next)        => ??? // todo: looks like I don't need it
               case Node.Zero(downLead, next) => ??? // todo: looks like I don't need it
               case Node.Tail(maybeDownTail) =>
-                val baseLead: A   = tail.head
-                val maybeBaseTail = l4(tail.tail)
+                val baseLead: A   = base.head
+                val maybeBaseTail = l2(base.tail)
                 val upSubtracted =
                   emap2(maybeBaseTail, maybeDownTail) { (baseTail, downTail) =>
                     Vector.map2(baseTail, downTail) { (baseX, downX) => baseX - downX * baseLead }
                   }
-                Zero[W - 1, A](ZeroT.of[A], Tail[W - 1 - 1, A](l5(upSubtracted)))
+                Zero[W, A](ZeroT.of[A], Tail[W - 1, A](upSubtracted))
 
       case NodeTrap.Next(down, next) =>
         down match
           case Down.ZeroLine() =>
-            val baseLead: A    = tail.head
-            val maybeBaseTail  = tail.tail
-            val maybeProcessed = maybeBaseTail.map { baseTail => process(baseLead, baseTail, l7(next)) }
-            Skip[W - 1, A](baseLead, ???)
+            val baseLead: A    = base.head
+            val maybeBaseTail  = base.tail
+            val maybeProcessed = maybeBaseTail.map { baseTail => process(baseTail, next) }
+            Skip[W, A](baseLead, Node(maybeProcessed))
           case Down.NodeLine(node) =>
             node match
               case Skip(a, next)    => ???
               case Zero(zero, next) => ???
               case Tail(tail)       => ???
 
+  type A = Int
+
+  given Div[A] = _ / _ // todo: inacurate, for test
   type W = 9
   val line2Lead: A            = 20
   val line2: Vector[W - 1, A] = Vector.of(21, 22, 23, 24, 25, 26, 27, 28)
@@ -492,7 +495,7 @@ object UpSubtraction {
   val nodeTrap: NodeTrap[7, A] =
     Next[7, A](down3, Next[6, A](down4, Next[5, A](down5, Next[4, A](down6, Next[3, A](down7, First(down8))))))
 
-  val result: Node[8, A] = process[9](line2Lead, line2.asRight, nodeTrap)
+  val result: Node[8, A] = process[8, A](line2, nodeTrap)
 }
 
 @main def upTest = {
