@@ -488,15 +488,18 @@ object UpSubtraction {
             val maybeBaseTail  = base.tail
             val maybeProcessed = maybeBaseTail.map { baseTail => process(baseTail, nextTrap) }
             Skip[W, A](baseLead, Node(maybeProcessed))
-          case Skip(_, _) =>
-            val baseLead: A    = base.head
-            val maybeBaseTail  = base.tail
-            val maybeProcessed = maybeBaseTail.map { baseTail => process(baseTail, nextTrap) }
-            Skip[W, A](baseLead, Node(maybeProcessed))
+          case skipNode @ Skip(_, _) =>
+            val baseLead: A   = base.head
+            val maybeBaseTail = base.tail
+            val maybeSubtracted = maybeBaseTail.map { baseTail =>
+              val processed = process(baseTail, nextTrap)
+              Node.map2(processed, skipNode) { (baseX, downX) => baseX - downX * baseLead }
+            }
+            Zero(ZeroT.of[A], Node(maybeSubtracted))
           case zeroNode @ Zero(_, _) =>
             val baseLead: A   = base.head
             val maybeBaseTail = base.tail
-            val maybeSubtracted: Either[W =:= 1, Node[W - 1, A]] = maybeBaseTail.map { baseTail =>
+            val maybeSubtracted = maybeBaseTail.map { baseTail =>
               val processed = process(baseTail, nextTrap)
               Node.map2(processed, zeroNode) { (baseX, downX) => baseX - downX * baseLead }
             }
