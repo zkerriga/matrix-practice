@@ -237,54 +237,72 @@ object UpSubtraction {
 
   sealed trait Node[Size <: Int, A]:
     def divideBy(lead: A)(using Div[A]): Node[Size, A]
+    def toVector: Either[Size =:= 0, Vector[Size, A]]
 
   object Node:
     case class Skip[Size <: Int, A](a: A, next: Node[Size - 1, A]) extends Node[Size, A]:
       def divideBy(lead: A)(using Div[A]): Node[Size, A] = Skip(a / lead, next.divideBy(lead))
+      def toVector: Either[Size =:= 0, Vector[Size, A]] =
+        next.toVector match
+          case Left(sIs1)  => Vector.of(a).asInstanceOf.asRight // todo: remove asInstanceOf
+          case Right(tail) => l5(a +: tail).asRight
 
     case class Zero[Size <: Int, A](zero: A, next: Node[Size - 1, A]) extends Node[Size, A]:
       def divideBy(lead: A)(using Div[A]): Node[Size, A] = Zero(zero, next.divideBy(lead))
+      def toVector: Either[Size =:= 0, Vector[Size, A]] =
+        next.toVector match
+          case Left(sIs1)  => Vector.of(zero).asInstanceOf.asRight // todo: remove asInstanceOf
+          case Right(tail) => l5(zero +: tail).asRight
 
     case class Tail[Size <: Int, A](tail: Either[Size =:= 0, Vector[Size, A]]) extends Node[Size, A]:
       def divideBy(lead: A)(using Div[A]): Node[Size, A] = Tail(tail.map(_.map(_ / lead)))
+      def toVector: Either[Size =:= 0, Vector[Size, A]]  = tail
 
     def apply[W <: Int, A](e: Either[W =:= 1, Node[W - 1, A]]): Node[W - 1, A] = e match
       case Left(wIs1)  => Tail(Left(l3(wIs1)))
       case Right(node) => node
 
+    // todo: is it possible to skip => base cases?
     def map2[W <: Int, A](base: Node[W, A], down: Node[W, A])(f: (A, A) => A): Node[W, A] =
       base match
         case Skip(a, next) =>
           down match
             case Skip(_, downNext) => Skip(a, map2(next, downNext)(f))
-            case Zero(zero, next)  => ???
-            case Tail(tail)        => ???
+            case Zero(zero, next)  => base
+            case Tail(tail)        => base
 
         case Zero(zero, next) =>
           down match
-            case Skip(a, next)     => ???
             case Zero(_, downNext) => Zero(zero, map2(next, downNext)(f))
-            case Tail(tail)        => ???
+            case Skip(a, next)     => base
+            case Tail(tail)        => base
 
         case Tail(tail) =>
           down match
-            case Skip(a, next)    => ???
-            case Zero(zero, next) => ???
             case Tail(downTail) =>
               Tail(emap2(tail, downTail) { (tailVector, downVector) => Vector.map2(tailVector, downVector)(f) })
+            case Skip(a, next)    => base
+            case Zero(zero, next) => base
 
   // enum Node[Size <: Int, +A]:
   //   case Skip(a: A, next: Node[Size - 1, A])             extends Node[Size, A]
   //   case Zero(lead: 0, next: Node[Size - 1, A])          extends Node[Size, A]
   //   case Tail(tail: Either[Size =:= 0, Vector[Size, A]]) extends Node[Size, A]
 
-  enum Down[Size <: Int, A]:
-    case ZeroLine()
-    case NodeLine(node: Node[Size, A])
+  // enum Down[Size <: Int, A]:
+  //   case ZeroLine()
+  //   case NodeLine(node: Node[Size, A])
 
-  enum NodeTrap[W <: Int, A]:
-    case First(down: Down[W, A])                          extends NodeTrap[W, A]
-    case Next(down: Down[W, A], next: NodeTrap[W - 1, A]) extends NodeTrap[W, A]
+  // enum NodeTrap[W <: Int, A]:
+  //   case First(down: Down[W, A])                          extends NodeTrap[W, A]
+  //   case Next(down: Down[W, A], next: NodeTrap[W - 1, A]) extends NodeTrap[W, A]
+
+  case object ZeroLine
+  type ZeroLine = ZeroLine.type
+
+  enum NodeTrap2[W <: Int, A]:
+    case First(down: ZeroLine | Node.Tail[W, A])
+    case Next(down: ZeroLine | Node.Skip[W, A] | Node.Zero[W, A], next: NodeTrap2[W - 1, A])
 
   /*
   object Node:
@@ -438,71 +456,51 @@ object UpSubtraction {
   def l3[W <: Int](a: =:=[W, 1]): =:=[W - 1, 0]                                                    = a.asInstanceOf
   def l4[W <: Int, A](a: Either[W - 1 =:= 1, Vector[W - 1 - 1, A]]): Either[W - 2 =:= 0, Vector[W - 2, A]] =
     a.asInstanceOf
-
-  def l5[W <: Int, A](a: Either[W - 2 =:= 0, Vector[W - 2, A]]): Either[W - 1 - 1 =:= 0, Vector[W - 1 - 1, A]]     = ???
-  def l6[W <: Int, A](a: Either[W - 1 =:= 1, Vector[W - 1 - 1, A]]): Either[W - 1 - 1 =:= 0, Vector[W - 1 - 1, A]] = ???
-  def l7[W <: Int, A](a: NodeTrap[W - 2 - 1, A]): NodeTrap[W - 1 - 2, A]                                           = ???
-//  def l5[W <: Int, A](a: Either[W =:= 1, Either[W - 2 =:= 0, A]]): Either[W =:= 1, A] = ???
-
-//  def c5[W <: Int, A](a: Either[W =:= 1, Either[W - 2 =:= 0, Vector[W - 2, A]]]): Either[W =:= 1, Vector[W - 2, A]] = {
-//    a match
-//      case Left(wIs1) => ???
-//      case Right(value) =>
-//        value match
-//          case Left(wIs2)  => ???
-//          case Right(vector) => vector.asRight
-//  }
+  def l5[S <: Int, A](a: Vector[S - 1 + 1, A]): Vector[S, A] = a.asInstanceOf
 
   import Node.*
-  import NodeTrap.*
+  import NodeTrap2.*
 
   def process[W <: Int, A: Div: Mul: Sub: ZeroT](
     base: Vector[W, A],
-    trap: NodeTrap[W - 1, A],
+    trap: NodeTrap2[W - 1, A],
   ): Node[W, A] =
     trap match
-      case NodeTrap.First(down) =>
+      case NodeTrap2.First(down) =>
         down match
-          case Down.ZeroLine() =>
+          case ZeroLine =>
             val baseLead: A   = base.head
             val maybeBaseTail = base.tail
             Skip[W, A](baseLead, Tail[W - 1, A](l2(maybeBaseTail)))
-          case Down.NodeLine(node) =>
-            node match
-              case Node.Skip(a, next)        => ??? // todo: looks like I don't need it
-              case Node.Zero(downLead, next) => ??? // todo: looks like I don't need it
-              case Node.Tail(maybeDownTail) =>
-                val baseLead: A   = base.head
-                val maybeBaseTail = l2(base.tail)
-                val upSubtracted =
-                  emap2(maybeBaseTail, maybeDownTail) { (baseTail, downTail) =>
-                    Vector.map2(baseTail, downTail) { (baseX, downX) => baseX - downX * baseLead }
-                  }
-                Zero[W, A](ZeroT.of[A], Tail[W - 1, A](upSubtracted))
+          case Tail(maybeDownTail) =>
+            val baseLead: A   = base.head
+            val maybeBaseTail = l2(base.tail)
+            val upSubtracted =
+              emap2(maybeBaseTail, maybeDownTail) { (baseTail, downTail) =>
+                Vector.map2(baseTail, downTail) { (baseX, downX) => baseX - downX * baseLead }
+              }
+            Zero[W, A](ZeroT.of[A], Tail[W - 1, A](upSubtracted))
 
-      case NodeTrap.Next(down, nextTrap) =>
+      case NodeTrap2.Next(down, nextTrap) =>
         down match
-          case Down.ZeroLine() =>
+          case ZeroLine =>
             val baseLead: A    = base.head
             val maybeBaseTail  = base.tail
             val maybeProcessed = maybeBaseTail.map { baseTail => process(baseTail, nextTrap) }
             Skip[W, A](baseLead, Node(maybeProcessed))
-          case Down.NodeLine(node) =>
-            node match
-              case Skip(a, next) =>
-                val baseLead: A    = base.head
-                val maybeBaseTail  = base.tail
-                val maybeProcessed = maybeBaseTail.map { baseTail => process(baseTail, nextTrap) }
-                Skip[W, A](baseLead, Node(maybeProcessed))
-              case zeroNode @ Zero(zero, next) =>
-                val baseLead: A   = base.head
-                val maybeBaseTail = base.tail
-                val maybeSubtracted: Either[W =:= 1, Node[W - 1, A]] = maybeBaseTail.map { baseTail =>
-                  val processed = process(baseTail, nextTrap)
-                  Node.map2(processed, zeroNode) { (baseX, downX) => baseX - downX * baseLead }
-                }
-                Zero(ZeroT.of[A], Node(maybeSubtracted))
-              case Tail(tail) => ???
+          case Skip(_, _) =>
+            val baseLead: A    = base.head
+            val maybeBaseTail  = base.tail
+            val maybeProcessed = maybeBaseTail.map { baseTail => process(baseTail, nextTrap) }
+            Skip[W, A](baseLead, Node(maybeProcessed))
+          case zeroNode @ Zero(_, _) =>
+            val baseLead: A   = base.head
+            val maybeBaseTail = base.tail
+            val maybeSubtracted: Either[W =:= 1, Node[W - 1, A]] = maybeBaseTail.map { baseTail =>
+              val processed = process(baseTail, nextTrap)
+              Node.map2(processed, zeroNode) { (baseX, downX) => baseX - downX * baseLead }
+            }
+            Zero(ZeroT.of[A], Node(maybeSubtracted))
 
   type A = Int
 
@@ -511,23 +509,17 @@ object UpSubtraction {
   val line2Lead: A            = 20
   val line2: Vector[W - 1, A] = Vector.of(21, 22, 23, 24, 25, 26, 27, 28)
 
-  val down3: Down[7, A] = Down.ZeroLine() // zero
-  val down4: Down[6, A] = Down.NodeLine {
-    Skip[6, A](32, Skip[5, A](33, Zero[4, A](0, Zero[3, A](0, Tail(Vector.of(36, 37).asRight)))))
-  }
-  val down5: Down[5, A] = Down.ZeroLine() // zero
-  val down6: Down[4, A] = Down.ZeroLine() // zero
-  val down7: Down[3, A] = Down.NodeLine {
-    Zero[3, A](0, Tail(Vector.of(42, 43).asRight))
-  }
-  val down8: Down[2, A] = Down.NodeLine {
-    Tail(Vector.of(51, 52).asRight[2 =:= 0])
-  }
+  val down3             = ZeroLine // zero
+  val down4: Skip[6, A] = Skip[6, A](32, Skip[5, A](33, Zero[4, A](0, Zero[3, A](0, Tail(Vector.of(36, 37).asRight)))))
+  val down5             = ZeroLine // zero
+  val down6             = ZeroLine // zero
+  val down7: Zero[3, A] = Zero[3, A](0, Tail(Vector.of(42, 43).asRight))
+  val down8: Tail[2, A] = Tail(Vector.of(51, 52).asRight[2 =:= 0])
 
-  val nodeTrap: NodeTrap[7, A] =
+  val nodeTrap: NodeTrap2[7, A] =
     Next[7, A](down3, Next[6, A](down4, Next[5, A](down5, Next[4, A](down6, Next[3, A](down7, First(down8))))))
 
-  // val result: Node[8, A] = process[8, A](line2, nodeTrap)
+  val result1: Node[8, A] = process[8, A](line2, nodeTrap)
 
   val result = process[6, A](
     Vector.of(32, 33, 34, 35, 36, 37),
@@ -536,5 +528,8 @@ object UpSubtraction {
 }
 
 @main def upTest = {
+  println(UpSubtraction.result1)
+  println(UpSubtraction.result1.toVector)
   println(UpSubtraction.result)
+  println(UpSubtraction.result.toVector)
 }
