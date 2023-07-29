@@ -166,21 +166,27 @@ object UpSubtraction {
   //                             __ [51 52] <-- S - 8
   // Empty
 
-  sealed trait Node[Size <: Int, +A]:
+  sealed trait Node[Size <: Int, A]:
     def toVector: Either[Size =:= 0, Vector[Size, A]]
+    def divideBy(lead: A)(using Div[A]): Node[Size, A]
 
   object Node:
     sealed trait Artificial[Size <: Int, A](value: A, next: Node[Size - 1, A]) extends Node[Size, A]:
+      def divideBy(lead: A)(using Div[A]): Node.Artificial[Size, A]
       def toVector: Either[Size =:= 0, Vector[Size, A]] =
         next.toVector match
-          case Left(sIs1)  => Vector.of(value).asInstanceOf.asRight // todo: remove asInstanceOf
+          case Left(sIs1)  => l6(sIs1).liftContra[[s] =>> Vector[s & Int, A]](Vector.of(value)).asRight
           case Right(tail) => l5(value +: tail).asRight
 
-    case class Skip[Size <: Int, A](a: A, next: Node[Size - 1, A])    extends Artificial[Size, A](a, next)
-    case class Zero[Size <: Int, A](zero: A, next: Node[Size - 1, A]) extends Artificial[Size, A](zero, next)
+    case class Skip[Size <: Int, A](a: A, next: Node[Size - 1, A]) extends Artificial[Size, A](a, next):
+      def divideBy(lead: A)(using Div[A]): Skip[Size, A] = Skip(a / lead, next.divideBy(lead))
+
+    case class Zero[Size <: Int, A](zero: A, next: Node[Size - 1, A]) extends Artificial[Size, A](zero, next):
+      def divideBy(lead: A)(using Div[A]): Zero[Size, A] = Zero(zero, next.divideBy(lead))
 
     case class Tail[Size <: Int, A](tail: Either[Size =:= 0, Vector[Size, A]]) extends Node[Size, A]:
-      def toVector: Either[Size =:= 0, Vector[Size, A]] = tail
+      def toVector: Either[Size =:= 0, Vector[Size, A]]  = tail
+      def divideBy(lead: A)(using Div[A]): Tail[Size, A] = Tail(tail.map(_.map(_ / lead)))
 
     def apply[W <: Int, A](e: Either[W =:= 1, Node[W - 1, A]]): Node[W - 1, A] = e match
       case Left(wIs1)  => Tail(Left(l3(wIs1)))
@@ -218,6 +224,7 @@ object UpSubtraction {
   def l2[W <: Int, A](a: Either[W =:= 1, Vector[W - 1, A]]): Either[W - 1 =:= 0, Vector[W - 1, A]] = a.asInstanceOf
   def l3[W <: Int](a: =:=[W, 1]): =:=[W - 1, 0]                                                    = a.asInstanceOf
   def l5[S <: Int, A](a: Vector[S - 1 + 1, A]): Vector[S, A]                                       = a.asInstanceOf
+  def l6[W <: Int](a: =:=[W - 1, 0]): =:=[W, 1]                                                    = a.asInstanceOf
 
   import Node.*
   import NodeTrap.*
@@ -228,7 +235,7 @@ object UpSubtraction {
   def process[W <: Int, A: Mul: Sub: ZeroT](
     base: Vector[W, A],
     trap: NodeTrap[W - 1, A],
-  ): Node[W, A] =
+  ): Node.Artificial[W, A] =
     val baseLead: A   = base.head
     val maybeBaseTail = base.tail
     trap match
@@ -244,7 +251,7 @@ object UpSubtraction {
 
       case NodeTrap.Next(down, nextTrap) =>
         val maybeProcessed = maybeBaseTail.map { baseTail => process(baseTail, nextTrap) }
-        def onArtificial(node: Node.Artificial[W - 1, A]): Node[W, A] =
+        def onArtificial(node: Node.Artificial[W - 1, A]): Node.Artificial[W, A] =
           Zero[W, A](ZeroT.of[A], Node(maybeProcessed.map(Node.map2(_, node)(subtractBy(baseLead)))))
         down match
           case ZeroLine          => Skip[W, A](baseLead, Node(maybeProcessed))
