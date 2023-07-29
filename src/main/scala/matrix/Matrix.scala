@@ -17,7 +17,7 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
   def getRow[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Height]): Vector[Width, A]
   def getColumn[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Width]): Vector[Height, A]
 
-  def topRow: Vector[Width, A] = getRow(0)
+  def topRow: Vector[Width, A] = getRow(0)(using guaranteed)
   def topTail: Either[Height =:= 1, Matrix[Height - 1, Width, A]]
   def leftTail(using Evidence[Width > 1]): Matrix[Height, Width - 1, A]
 
