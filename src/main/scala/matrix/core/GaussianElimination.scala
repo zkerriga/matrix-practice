@@ -6,7 +6,7 @@ import math.syntax.*
 import math.{Zero, One}
 import scala.annotation.tailrec
 
-object GaussianElimination2 {
+object GaussianElimination {
   import scala.compiletime.ops.int.*
 
   import matrix.Evidence

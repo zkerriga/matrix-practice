@@ -6,7 +6,7 @@ import matrix.Evidence
 import math.aliases.*
 import math.syntax.*
 import math.Zero as ZeroT
-import matrix.core.GaussianElimination2
+import matrix.core.GaussianElimination
 
 object UpSubtraction {
   extension [R](a: R) def asRight[L]: Either[L, R] = Right(a)
@@ -168,7 +168,6 @@ object UpSubtraction {
   // Empty
 
   sealed trait Node[Size <: Int, A]:
-    // def tryToVector: Either[Size =:= 0, Vector[Size, A]]
     def divideBy(lead: A)(using Div[A]): Node[Size, A]
 
   object Node:
@@ -178,7 +177,7 @@ object UpSubtraction {
         next match
           case node @ Skip(_, _) => (value +: node.toVector).asInstanceOf[Vector[Size, A]] // todo: fix
           case node @ Zero(_, _) => (value +: node.toVector).asInstanceOf[Vector[Size, A]] // todo: fix
-          case Tail(tail)        => GaussianElimination2.desplit(value, l1(tail))
+          case Tail(tail)        => GaussianElimination.desplit(value, l1(tail))
 
     case class Skip[Size <: Int, A](a: A, next: Node[Size - 1, A]) extends Artificial[Size, A](a, next):
       def divideBy(lead: A)(using Div[A]): Skip[Size, A] = Skip(a / lead, next.divideBy(lead))
