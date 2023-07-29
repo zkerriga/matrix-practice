@@ -4,6 +4,7 @@ import matrix.{Matrix, Vector}
 import math.aliases.*
 import math.syntax.*
 import math.{Zero, One}
+import scala.annotation.tailrec
 
 object GaussianElimination2 {
   import scala.compiletime.ops.int.*
@@ -153,8 +154,33 @@ object GaussianElimination2 {
           toSubtractAbove = NodeTrap.First(Node.Tail(Left(l2(wIs1)))),
         )
 
+  def moveNonZeroLeadRowToTop[H <: Int, W <: Int, A: Zero](matrix: Matrix[H, W, A]): Matrix[H, W, A] = {
+    val topVector = matrix.topRow
+    if topVector.head != Zero.of[A] then matrix
+    else
+      matrix.topTail.toOption.fold(matrix) { tailMatrix =>
+        @tailrec
+        def moving[I <: Int](left: Matrix[H - I, W, A], skipped: Matrix[I, W, A]): Matrix[H, W, A] = {
+          val topVector       = left.topRow
+          val maybeTailMatrix = left.topTail
+          if topVector.head == Zero.of[A] then
+            maybeTailMatrix match
+              case Right(tailMatrix) => moving(tailMatrix.asH[H - (I + 1)], skipped.addDown(topVector))
+              case _                 => matrix
+          else
+            (maybeTailMatrix match
+              case Right(tailMatrix) => tailMatrix.addTop(skipped).asH[H - 1]
+              case Left(is1) =>
+                given =:=[H - I, 1] = is1
+                skipped.asH[H - 1]
+            ).addTop(topVector).asH[H]
+        }
+        moving[1](tailMatrix, Matrix { Vector.of(topVector) })
+      }
+  }
+
   def recursive[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One](matrix: Matrix[H, W, A]): SubMatrixResult[H, W, A] = {
-    val swapped = GaussianElimination.moveNonZeroLeadRowToTop(matrix)
+    val swapped = moveNonZeroLeadRowToTop(matrix)
 
     val topVector          = swapped.topRow
     val maybeMatrixTail    = swapped.topTail
