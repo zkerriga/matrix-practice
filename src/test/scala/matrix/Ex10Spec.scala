@@ -233,3 +233,33 @@ class Ex10Spec extends AnyFlatSpec with Matchers:
 
     matrix.rowEchelon shouldBe expected
   }
+
+  it should "make as less calculations as posible" in {
+    case class Complexity[A](value: A, div: Int = 0, mul: Int = 0, sum: Int = 0)
+    object Complexity:
+      given [A: Zero]: Zero[Complexity[A]] = Zero(Complexity(Zero.of[A]))
+      given [A: One]: One[Complexity[A]]   = One(Complexity(One.of[A]))
+      import math.syntax.*
+      given [A: Div]: Div[Complexity[A]] =
+        (a1, a2) => Complexity(a1.value / a2.value, a1.div + a2.div + 1, a1.mul + a2.mul, a1.sum + a2.sum)
+      given [A: Mul]: Mul[Complexity[A]] =
+        (a1, a2) => Complexity(a1.value * a2.value, a1.div + a2.div, a1.mul + a2.mul + 1, a1.sum + a2.sum)
+      given [A: Sub]: Sub[Complexity[A]] =
+        (a1, a2) => Complexity(a1.value - a2.value, a1.div + a2.div, a1.mul + a2.mul + 1, a1.sum + a2.sum + 1)
+
+    // wiki: https://en.wikipedia.org/wiki/Gaussian_elimination#Example_of_the_algorithm
+    val matrix2: Matrix[3, 4, Complexity[Fraction]] = Matrix {
+      Vector.of(
+        Vector.of(2, 1, -1, 8),
+        Vector.of(-3, -1, 2, -11),
+        Vector.of(-2, 1, 2, -3),
+      )
+    }.toFraction.map(Complexity(_))
+
+    val result = matrix2.rowEchelon
+
+    val (div, mul, sum) = result.foldLeft((0, 0, 0)) { (acc, a) => (acc(0) + a.div, acc(1) + a.mul, acc(2) + a.sum) }
+    div shouldBe 53
+    mul shouldBe 100
+    sum shouldBe 50
+  }

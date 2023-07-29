@@ -49,6 +49,7 @@ trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[S
 
   def map[B](f: A => B): Vector[Size, B]
   def reduceLeft[B >: A](op: (B, A) => B): B
+  def foldLeft[B](z: B)(op: (B, A) => B): B
 
   def sum[A1 >: A: Add]: A1 = reduceLeft(_ + _)
 
@@ -91,8 +92,8 @@ object Vector:
 
     def map[B](f: A => B): Vector[Size, B] =
       Impl(size, vec.map(f))
-    def reduceLeft[B >: A](op: (B, A) => B): B =
-      vec.reduceLeft(op)
+    def reduceLeft[B >: A](op: (B, A) => B): B = vec.reduceLeft(op)
+    def foldLeft[B](z: B)(op: (B, A) => B): B  = vec.foldLeft(z)(op)
 
     override def toString: String = vec.mkString("[", ", ", "]")
   end Impl

@@ -72,6 +72,8 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
   def mapRows[Width2 <: Int, B](f: Vector[Width, A] => Vector[Width2, B]): Matrix[Height, Width2, B]
   def map[B](f: A => B): Matrix[Height, Width, B] = mapRows(_.map(f))
 
+  def foldLeft[B](z: B)(op: (B, A) => B): B
+
   override def equals(obj: Any): Boolean = (this eq obj.asInstanceOf[AnyRef]) || (obj match
     case other: Matrix[Height @unchecked, Width @unchecked, A @unchecked] =>
       (shape == other.shape) && (0 until height).forall { row =>
@@ -114,6 +116,8 @@ object Matrix:
 
     def mapRows[Width2 <: Int, B](f: Vector[Width, A] => Vector[Width2, B]): Matrix[Height, Width2, B] =
       Matrix(table.map(f))
+
+    def foldLeft[B](z: B)(op: (B, A) => B): B = table.foldLeft(z) { (acc, vector) => vector.foldLeft(acc)(op) }
 
     override def toString: String = table.toString
   end Impl

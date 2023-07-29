@@ -6,6 +6,7 @@ import matrix.Evidence
 import math.aliases.*
 import math.syntax.*
 import math.Zero as ZeroT
+import matrix.core.GaussianElimination2
 
 object UpSubtraction {
   extension [R](a: R) def asRight[L]: Either[L, R] = Right(a)
@@ -167,16 +168,17 @@ object UpSubtraction {
   // Empty
 
   sealed trait Node[Size <: Int, A]:
-    def toVector: Either[Size =:= 0, Vector[Size, A]]
+    // def tryToVector: Either[Size =:= 0, Vector[Size, A]]
     def divideBy(lead: A)(using Div[A]): Node[Size, A]
 
   object Node:
     sealed trait Artificial[Size <: Int, A](value: A, next: Node[Size - 1, A]) extends Node[Size, A]:
       def divideBy(lead: A)(using Div[A]): Node.Artificial[Size, A]
-      def toVector: Either[Size =:= 0, Vector[Size, A]] =
-        next.toVector match
-          case Left(sIs1)  => l6(sIs1).liftContra[[s] =>> Vector[s & Int, A]](Vector.of(value)).asRight
-          case Right(tail) => l5(value +: tail).asRight
+      def toVector: Vector[Size, A] =
+        next match
+          case node @ Skip(_, _) => (value +: node.toVector).asInstanceOf[Vector[Size, A]] // todo: fix
+          case node @ Zero(_, _) => (value +: node.toVector).asInstanceOf[Vector[Size, A]] // todo: fix
+          case Tail(tail)        => GaussianElimination2.desplit(value, l1(tail))
 
     case class Skip[Size <: Int, A](a: A, next: Node[Size - 1, A]) extends Artificial[Size, A](a, next):
       def divideBy(lead: A)(using Div[A]): Skip[Size, A] = Skip(a / lead, next.divideBy(lead))
@@ -185,7 +187,7 @@ object UpSubtraction {
       def divideBy(lead: A)(using Div[A]): Zero[Size, A] = Zero(zero, next.divideBy(lead))
 
     case class Tail[Size <: Int, A](tail: Either[Size =:= 0, Vector[Size, A]]) extends Node[Size, A]:
-      def toVector: Either[Size =:= 0, Vector[Size, A]]  = tail
+      // def tryToVector: Either[Size =:= 0, Vector[Size, A]] = tail
       def divideBy(lead: A)(using Div[A]): Tail[Size, A] = Tail(tail.map(_.map(_ / lead)))
 
     def apply[W <: Int, A](e: Either[W =:= 1, Node[W - 1, A]]): Node[W - 1, A] = e match
@@ -198,8 +200,8 @@ object UpSubtraction {
         case Skip(a, next) =>
           down match
             case Skip(downA, downNext) => Skip(f(a, downA), map2(next, downNext)(f))
-            case Zero(zero, next)  => base
-            case Tail(tail)        => base
+            case Zero(zero, next)      => base
+            case Tail(tail)            => base
 
         case Zero(zero, next) =>
           down match
@@ -214,13 +216,14 @@ object UpSubtraction {
             case Skip(a, next)    => base
             case Zero(zero, next) => base
 
-  case object ZeroLine
-  type ZeroLine = ZeroLine.type
+  case object ZeroColumn
+  type ZeroColumn = ZeroColumn.type
 
   enum NodeTrap[W <: Int, A]:
-    case First(down: ZeroLine | Node.Tail[W, A])
-    case Next(down: ZeroLine | Node.Artificial[W, A], next: NodeTrap[W - 1, A])
+    case First(down: ZeroColumn | Node.Tail[W, A])
+    case Next(down: ZeroColumn | Node.Artificial[W, A], next: NodeTrap[W - 1, A])
 
+  def l1[W <: Int, A](a: Either[W - 1 =:= 0, Vector[W - 1, A]]): Either[W =:= 1, Vector[W - 1, A]] = a.asInstanceOf
   def l2[W <: Int, A](a: Either[W =:= 1, Vector[W - 1, A]]): Either[W - 1 =:= 0, Vector[W - 1, A]] = a.asInstanceOf
   def l3[W <: Int](a: =:=[W, 1]): =:=[W - 1, 0]                                                    = a.asInstanceOf
   def l5[S <: Int, A](a: Vector[S - 1 + 1, A]): Vector[S, A]                                       = a.asInstanceOf
@@ -241,7 +244,7 @@ object UpSubtraction {
     trap match
       case NodeTrap.First(down) =>
         down match
-          case ZeroLine => Skip[W, A](baseLead, Tail[W - 1, A](l2(maybeBaseTail)))
+          case ZeroColumn => Skip[W, A](baseLead, Tail[W - 1, A](l2(maybeBaseTail)))
           case Tail(maybeDownTail) =>
             val upSubtracted =
               emap2(l2(maybeBaseTail), maybeDownTail) { (baseTail, downTail) =>
@@ -254,7 +257,7 @@ object UpSubtraction {
         def onArtificial(node: Node.Artificial[W - 1, A]): Node.Artificial[W, A] =
           Zero[W, A](ZeroT.of[A], Node(maybeProcessed.map(Node.map2(_, node)(subtractBy(baseLead)))))
         down match
-          case ZeroLine          => Skip[W, A](baseLead, Node(maybeProcessed))
+          case ZeroColumn        => Skip[W, A](baseLead, Node(maybeProcessed))
           case node @ Skip(_, _) => onArtificial(node)
           case node @ Zero(_, _) => onArtificial(node)
 
@@ -264,10 +267,10 @@ object UpSubtraction {
   val line2Lead: A            = 20
   val line2: Vector[W - 1, A] = Vector.of(21, 22, 23, 24, 25, 26, 27, 28)
 
-  val down3             = ZeroLine // zero
+  val down3             = ZeroColumn // zero
   val down4: Skip[6, A] = Skip[6, A](32, Skip[5, A](33, Zero[4, A](0, Zero[3, A](0, Tail(Vector.of(36, 37).asRight)))))
-  val down5             = ZeroLine // zero
-  val down6             = ZeroLine // zero
+  val down5             = ZeroColumn // zero
+  val down6             = ZeroColumn // zero
   val down7: Zero[3, A] = Zero[3, A](0, Tail(Vector.of(42, 43).asRight))
   val down8: Tail[2, A] = Tail(Vector.of(51, 52).asRight[2 =:= 0])
 
@@ -280,11 +283,4 @@ object UpSubtraction {
     Vector.of(32, 33, 34, 35, 36, 37),
     Next[5, A](down5, Next[4, A](down6, Next[3, A](down7, First(down8)))),
   )
-}
-
-@main def upTest = {
-  println(UpSubtraction.result1)
-  println(UpSubtraction.result1.toVector)
-  println(UpSubtraction.result)
-  println(UpSubtraction.result.toVector)
 }
