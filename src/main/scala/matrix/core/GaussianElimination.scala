@@ -11,13 +11,16 @@ object GaussianElimination {
 
   import matrix.Evidence
   import matrix.lemmas.given
-  import experimental.UpSubtraction.{NodeTrap, ZeroColumn, Node}
-
-  import experimental.UpSubtraction.process
 
   def l1[W <: Int, A](a: Either[W =:= 1, Vector[W - 1, A]]): Either[W - 1 =:= 0, Vector[W - 1, A]] = a.asInstanceOf
   def l2[W <: Int](a: W =:= 1): W - 1 =:= 0                                                        = a.asInstanceOf
   def l3[W <: Int, A](a: Either[W - 1 =:= 0, Vector[W - 1, A]]): Either[W =:= 1, Vector[W - 1, A]] = a.asInstanceOf
+
+  def emap2[E, A, B, C](aE: Either[E, A], bE: Either[E, B])(f: (A, B) => C): Either[E, C] =
+    (aE, bE) match
+      case (Right(a), Right(b)) => Right(f(a, b))
+      case (Left(error), _)     => Left(error)
+      case (_, Left(error))     => Left(error)
 
   extension [H <: Int, W <: Int, A, F[_ <: Int, _ <: Int, _]](fa: F[H, W, A])
     def asH[H2 <: Int](using H =:= H2): F[H2, W, A] =
@@ -52,6 +55,91 @@ object GaussianElimination {
       case Left(is1) =>
         given =:=[1, Size] = is1.flip
         Vector.of(lead).asS[Size]
+
+  //
+
+  sealed trait Node[Size <: Int, A]:
+    def divideBy(lead: A)(using Div[A]): Node[Size, A]
+
+  object Node:
+    sealed trait Artificial[Size <: Int, A](value: A, next: Node[Size - 1, A]) extends Node[Size, A]:
+      def divideBy(lead: A)(using Div[A]): Node.Artificial[Size, A]
+      def toVector: Vector[Size, A] =
+        next match
+          case node @ Skip(_, _) => (value +: node.toVector).asInstanceOf[Vector[Size, A]] // todo: fix
+          case node @ Zero(_, _) => (value +: node.toVector).asInstanceOf[Vector[Size, A]] // todo: fix
+          case Tail(tail)        => GaussianElimination.desplit(value, l3(tail))
+
+    case class Skip[Size <: Int, A](a: A, next: Node[Size - 1, A]) extends Artificial[Size, A](a, next):
+      def divideBy(lead: A)(using Div[A]): Skip[Size, A] = Skip(a / lead, next.divideBy(lead))
+
+    case class Zero[Size <: Int, A](zero: A, next: Node[Size - 1, A]) extends Artificial[Size, A](zero, next):
+      def divideBy(lead: A)(using Div[A]): Zero[Size, A] = Zero(zero, next.divideBy(lead))
+
+    case class Tail[Size <: Int, A](tail: Either[Size =:= 0, Vector[Size, A]]) extends Node[Size, A]:
+      // def tryToVector: Either[Size =:= 0, Vector[Size, A]] = tail
+      def divideBy(lead: A)(using Div[A]): Tail[Size, A] = Tail(tail.map(_.map(_ / lead)))
+
+    def apply[W <: Int, A](e: Either[W =:= 1, Node[W - 1, A]]): Node[W - 1, A] = e match
+      case Left(wIs1)  => Tail(Left(l2(wIs1)))
+      case Right(node) => node
+
+    // todo: is it possible to skip => base cases?
+    def map2[W <: Int, A](base: Node[W, A], down: Node[W, A])(f: (A, A) => A): Node[W, A] =
+      base match
+        case Skip(a, next) =>
+          down match
+            case Skip(downA, downNext) => Skip(f(a, downA), map2(next, downNext)(f))
+            case Zero(zero, next)      => base
+            case Tail(tail)            => base
+
+        case Zero(zero, next) =>
+          down match
+            case Zero(_, downNext) => Zero(zero, map2(next, downNext)(f))
+            case Skip(a, next)     => base
+            case Tail(tail)        => base
+
+        case Tail(tail) =>
+          down match
+            case Tail(downTail) =>
+              Tail(emap2(tail, downTail) { (tailVector, downVector) => Vector.map2(tailVector, downVector)(f) })
+            case Skip(a, next)    => base
+            case Zero(zero, next) => base
+
+  case object ZeroColumn
+  type ZeroColumn = ZeroColumn.type
+
+  enum NodeTrap[W <: Int, A]:
+    case First(down: ZeroColumn | Node.Tail[W, A])
+    case Next(down: ZeroColumn | Node.Artificial[W, A], next: NodeTrap[W - 1, A])
+
+  def process[W <: Int, A: Mul: Sub: Zero](
+    base: Vector[W, A],
+    trap: NodeTrap[W - 1, A],
+  ): Node.Artificial[W, A] =
+    val baseLead: A   = base.head
+    val maybeBaseTail = base.tail
+    trap match
+      case NodeTrap.First(down) =>
+        down match
+          case ZeroColumn => Node.Skip[W, A](baseLead, Node.Tail[W - 1, A](l1(maybeBaseTail)))
+          case Node.Tail(maybeDownTail) =>
+            val upSubtracted =
+              emap2(l1(maybeBaseTail), maybeDownTail) { (baseTail, downTail) =>
+                Vector.map2(baseTail, downTail)(subtractBy(baseLead))
+              }
+            Node.Zero[W, A](Zero.of[A], Node.Tail[W - 1, A](upSubtracted))
+
+      case NodeTrap.Next(down, nextTrap) =>
+        val maybeProcessed = maybeBaseTail.map { baseTail => process(baseTail, nextTrap) }
+        def onArtificial(node: Node.Artificial[W - 1, A]): Node.Artificial[W, A] =
+          Node.Zero[W, A](Zero.of[A], Node(maybeProcessed.map(Node.map2(_, node)(subtractBy(baseLead)))))
+        down match
+          case ZeroColumn             => Node.Skip[W, A](baseLead, Node(maybeProcessed))
+          case node @ Node.Skip(_, _) => onArtificial(node)
+          case node @ Node.Zero(_, _) => onArtificial(node)
+
+  //
 
   def dropZeroColumn[H <: Int, W <: Int, A](
     topVectorTail: Vector[W - 1, A],
