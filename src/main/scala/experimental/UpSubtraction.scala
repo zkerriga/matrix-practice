@@ -197,7 +197,7 @@ object UpSubtraction {
       base match
         case Skip(a, next) =>
           down match
-            case Skip(_, downNext) => Skip(a, map2(next, downNext)(f))
+            case Skip(downA, downNext) => Skip(f(a, downA), map2(next, downNext)(f))
             case Zero(zero, next)  => base
             case Tail(tail)        => base
 

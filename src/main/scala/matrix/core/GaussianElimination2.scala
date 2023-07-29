@@ -159,43 +159,8 @@ object GaussianElimination2 {
         subtractDown(topVectorLead, maybeTopVectorTail, maybeMatrixTail),
       )
   }
-}
 
-@main def test2 = {
-  /* the answer is:
-In:
-1 2 3 4 5 6 7 8 9
-0 0 0 1 2 3 4 5 6
-0 0 0 0 0 0 1 2 3
-Out:
-1  2  3  0  -3 -6 0  6  12
-0  0  0  1  2  3  0  -3 -6
-0  0  0  0  0  0  1  2  3
-
-
-[1, 2, 3, 0, 5, 6, 0, 6, 12]
-[0, 0, 0, 1, 2, 3, 0, -3, -6]
-[0, 0, 0, 0, 0, 0, 1, 2, 3]
-   */
-
-  import org.apache.commons.math3.fraction.Fraction
-  extension [W <: Int](vector: Vector[W, Int]) def toFraction: Vector[W, Fraction] = vector.map(Fraction(_))
-
-  val matrix = Matrix[3, 9, Fraction] {
-    Vector.of(
-      Vector.of(1, 2, 3, 4, 5, 6, 7, 8, 9).toFraction,
-      Vector.of(0, 0, 0, 1, 2, 3, 4, 5, 6).toFraction,
-      Vector.of(0, 0, 0, 0, 0, 0, 1, 2, 3).toFraction,
-    )
-  }
-
-  given Div[Fraction]  = (f1: Fraction, f2: Fraction) => f1.divide(f2)
-  given Mul[Fraction]  = (f1: Fraction, f2: Fraction) => f1.multiply(f2)
-  given Sub[Fraction]  = (f1: Fraction, f2: Fraction) => f1.subtract(f2)
-  given Zero[Fraction] = Zero(Fraction.ZERO)
-  given One[Fraction]  = One(Fraction.ONE)
-
-  val result = GaussianElimination2.recursive(matrix)
-
-  println(result)
+  def on[Height <: Int, Width <: Int, A: Div: Mul: Sub: Zero: One](
+    matrix: Matrix[Height, Width, A]
+  ): Matrix[Height, Width, A] = recursive(matrix).subMatrix
 }

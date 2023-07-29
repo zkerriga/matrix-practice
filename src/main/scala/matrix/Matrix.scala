@@ -66,6 +66,9 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
       apply(row, column)
     }
 
+  def rowEchelon[A1 >: A](using Div[A1], Mul[A1], Sub[A1], Zero[A1], One[A1]): Matrix[Height, Width, A1] =
+    core.GaussianElimination2.on[Height, Width, A1](this)
+
   def mapRows[Width2 <: Int, B](f: Vector[Width, A] => Vector[Width2, B]): Matrix[Height, Width2, B]
   def map[B](f: A => B): Matrix[Height, Width, B] = mapRows(_.map(f))
 
