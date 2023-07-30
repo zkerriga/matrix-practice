@@ -5,22 +5,26 @@ import matrix.lemmas
 import matrix.{Evidence, Matrix, Vector}
 
 private[core] object LemmaConversions {
-  private def gen[F[_ <: Int], A <: Int, B <: Int](using same: A =:= B): Conversion[F[A], F[B]] =
-    fA => same.liftCo[[x] =>> F[x & Int]](fA)
+  private def gen[F[_], A, B](using same: A =:= B): Conversion[F[A], F[B]] = fA => same.liftCo[F](fA)
+
+  private def genMatrixH[H1 <: Int, H2 <: Int, W <: Int, A](using
+    H1 =:= H2
+  ): Conversion[Matrix[H1, W, A], Matrix[H2, W, A]] =
+    gen[[h] =>> Matrix[h & Int, W, A], H1, H2]
+
+  private def genMatrixW[W1 <: Int, W2 <: Int, H <: Int, A](using
+    W1 =:= W2
+  ): Conversion[Matrix[H, W1, A], Matrix[H, W2, A]] =
+    gen[[w] =>> Matrix[H, w & Int, A], W1, W2]
 
   private def genVector[S1 <: Int, S2 <: Int, A](using S1 =:= S2): Conversion[Vector[S1, A], Vector[S2, A]] =
     gen[[s] =>> Vector[s & Int, A], S1, S2]
 
+  private def genEither[E1, E2, A](using E1 =:= E2): Conversion[Either[E1, A], Either[E2, A]] =
+    gen[[e] =>> Either[e, A], E1, E2]
+
   private given [A, B](using same: A =:= B): =:=[B, A] = same.flip
 
-  given c1[S <: Int, A]: Conversion[Either[S - 1 =:= 0, A], Either[S =:= 1, A]] = _.asInstanceOf
-  given c2[S <: Int, A]: Conversion[Either[S =:= 1, A], Either[S - 1 =:= 0, A]] = _.asInstanceOf
-
-  given c3[H <: Int, W <: Int, A]: Conversion[Matrix[H - 1 + 1, W, A], Matrix[H, W, A]]        = _.asInstanceOf
-  given c10[H <: Int, W <: Int, A]: Conversion[Matrix[H, W - 1 + 1, A], Matrix[H, W, A]]       = _.asInstanceOf
-  given c8[H <: Int, W <: Int, A](using W =:= 1): Conversion[Matrix[H, 1, A], Matrix[H, W, A]] = _.asInstanceOf
-  given c9[H <: Int, W <: Int, A](using H =:= 1, W =:= 1): Conversion[Matrix[1, 1, A], Matrix[H, W, A]] =
-    _.asInstanceOf
   given c11[H <: Int, I <: Int, W <: Int, A]: Conversion[Matrix[H - I - 1, W, A], Matrix[H - (I + 1), W, A]] =
     _.asInstanceOf
   given c12[H <: Int, I <: Int, W <: Int, A]: Conversion[Matrix[I + (H - I - 1), W, A], Matrix[H - 1, W, A]] =
@@ -28,11 +32,31 @@ private[core] object LemmaConversions {
   given c13[H <: Int, I <: Int, W <: Int, A](using H - I =:= 1): Conversion[Matrix[I, W, A], Matrix[H - 1, W, A]] =
     _.asInstanceOf
 
+  given `Matrix[H1 => H2, W, A]`[H1 <: Int, H2 <: Int, W <: Int, A](using
+    H1 =:= H2
+  ): Conversion[Matrix[H1, W, A], Matrix[H2, W, A]] =
+    genMatrixH[H1, H2, W, A]
+
+  given `Matrix[H, W1 => W2, A]`[H <: Int, W1 <: Int, W2 <: Int, A](using
+    W1 =:= W2
+  ): Conversion[Matrix[H, W1, A], Matrix[H, W2, A]] =
+    genMatrixW[W1, W2, H, A]
+
+  given `Matrix[H, W1 <= W2, A]`[H <: Int, W1 <: Int, W2 <: Int, A](using
+    W2 =:= W1
+  ): Conversion[Matrix[H, W1, A], Matrix[H, W2, A]] =
+    genMatrixW[W1, W2, H, A]
+
   given `Vector[S1 => S2, A]`[S1 <: Int, S2 <: Int, A](using S1 =:= S2): Conversion[Vector[S1, A], Vector[S2, A]] =
     genVector[S1, S2, A]
 
   given `Vector[S1 <= S2, A]`[S1 <: Int, S2 <: Int, A](using S2 =:= S1): Conversion[Vector[S1, A], Vector[S2, A]] =
     genVector[S1, S2, A]
+
+  given `Either[E1 => E2, A]`[E1, E2, A](using E1 =:= E2): Conversion[Either[E1, A], Either[E2, A]] =
+    genEither[E1, E2, A]
+  given `Either[E1 <= E2, A]`[E1, E2, A](using E2 =:= E1): Conversion[Either[E1, A], Either[E2, A]] =
+    genEither[E1, E2, A]
 
   given `S = 1 =:= S - 1 = 0`[S <: Int]: Conversion[S =:= 1, S - 1 =:= 0] =
     eq => lemmas.`A = B =:= A - B = 0`[S, 1](eq)
