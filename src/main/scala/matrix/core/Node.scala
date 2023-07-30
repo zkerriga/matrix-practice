@@ -4,7 +4,9 @@ import math.aliases.Div
 import math.syntax.*
 import matrix.Vector
 import matrix.core.CatsLikeSyntax.*
-import matrix.core.MatrixConversions.{desplit, given}
+import matrix.core.LemmaConversions.given
+import matrix.core.MatrixConstructors.desplit
+import matrix.lemmas.given
 
 import scala.compiletime.ops.int.*
 

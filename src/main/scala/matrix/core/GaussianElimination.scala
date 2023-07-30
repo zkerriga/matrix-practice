@@ -5,7 +5,9 @@ import math.{Zero, One}
 import math.syntax.*
 import matrix.{Evidence, Matrix, Vector}
 import matrix.core.CatsLikeSyntax.*
-import matrix.core.MatrixConversions.{*, given}
+import matrix.core.LemmaConversions.given
+import matrix.core.MatrixConstructors.*
+import matrix.lemmas.given
 
 import scala.annotation.tailrec
 import scala.compiletime.ops.int.*
