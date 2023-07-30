@@ -12,18 +12,17 @@ private[core] sealed trait Node[Size <: Int, A]:
   def divideBy(lead: A)(using Div[A]): Node[Size, A]
 
 private[core] object Node:
-  sealed trait Artificial[Size <: Int, A](value: A, next: Node[Size - 1, A]) extends Node[Size, A]:
-    def divideBy(lead: A)(using Div[A]): Node.Artificial[Size, A]
+  sealed trait Processed[Size <: Int, A](value: A, next: Node[Size - 1, A]) extends Node[Size, A]:
+    def divideBy(lead: A)(using Div[A]): Node.Processed[Size, A]
     def toVector: Vector[Size, A] =
       next match
-        case node @ Skip(_, _) => value +: node.toVector
-        case node @ Zero(_, _) => value +: node.toVector
-        case Tail(tail)        => desplit(value, tail)
+        case node: Processed[Size - 1, A] => value +: node.toVector
+        case Tail(tail)                   => desplit(value, tail)
 
-  case class Skip[Size <: Int, A](a: A, next: Node[Size - 1, A]) extends Artificial[Size, A](a, next):
+  case class Skip[Size <: Int, A](a: A, next: Node[Size - 1, A]) extends Processed[Size, A](a, next):
     def divideBy(lead: A)(using Div[A]): Skip[Size, A] = Skip(a / lead, next.divideBy(lead))
 
-  case class Zero[Size <: Int, A](zero: A, next: Node[Size - 1, A]) extends Artificial[Size, A](zero, next):
+  case class Zero[Size <: Int, A](zero: A, next: Node[Size - 1, A]) extends Processed[Size, A](zero, next):
     def divideBy(lead: A)(using Div[A]): Zero[Size, A] = Zero(zero, next.divideBy(lead))
 
   case class Tail[Size <: Int, A](tail: Either[Size =:= 0, Vector[Size, A]]) extends Node[Size, A]:

@@ -22,31 +22,27 @@ object GaussianElimination {
   private def subtractUp[W <: Int, A: Mul: Sub: Zero](
     base: Vector[W, A],
     toSubtract: Trapezoid[W - 1, A],
-  ): Node.Artificial[W, A] =
-    val baseLead: A   = base.head
-    val maybeBaseTail = base.tail
+  ): Node.Processed[W, A] =
+    val baseLead: A                                          = base.head
+    val maybeBaseTail: Either[W - 1 =:= 0, Vector[W - 1, A]] = base.tail
     toSubtract match
       case Trapezoid.First(down) =>
         down match
           case Trapezoid.ZeroColumn => Node.Skip[W, A](baseLead, Node.Tail[W - 1, A](maybeBaseTail))
           case Node.Tail(maybeDownTail) =>
-            val upSubtracted: Either[W - 1 =:= 0, Vector[W - 1, A]] =
-              Either.map2[W - 1 =:= 0, Vector[W - 1, A], Vector[W - 1, A], Vector[W - 1, A]](
-                maybeBaseTail,
-                maybeDownTail,
-              ) { (baseTail, downTail) =>
+            val upSubtracted =
+              Either.map2(maybeBaseTail, maybeDownTail) { (baseTail, downTail) =>
                 Vector.map2(baseTail, downTail)(subtractBy(baseLead))
               }
-            Node.Zero[W, A](Zero.of[A], Node.Tail[W - 1, A](upSubtracted))
+            Node.Zero(Zero.of[A], Node.Tail(upSubtracted))
 
       case Trapezoid.Next(down, nextTrap) =>
         val maybeProcessed = maybeBaseTail.map { baseTail => subtractUp(baseTail, nextTrap) }
-        def onArtificial(node: Node.Artificial[W - 1, A]): Node.Artificial[W, A] =
-          Node.Zero[W, A](Zero.of[A], Node(maybeProcessed.map(Node.map2(_, node)(subtractBy(baseLead)))))
         down match
-          case Trapezoid.ZeroColumn   => Node.Skip[W, A](baseLead, Node(maybeProcessed))
-          case node @ Node.Skip(_, _) => onArtificial(node)
-          case node @ Node.Zero(_, _) => onArtificial(node)
+          case Trapezoid.ZeroColumn =>
+            Node.Skip(baseLead, Node(maybeProcessed))
+          case node: Node.Processed[W - 1, A] =>
+            Node.Zero(Zero.of[A], Node(maybeProcessed.map(Node.map2(_, node)(subtractBy(baseLead)))))
 
   private enum SubtractedDown[H <: Int, W <: Int, A]:
     case ToProcess(topTail: Vector[W - 1, A], downRight: Matrix[H - 1, W - 1, A])
@@ -54,17 +50,18 @@ object GaussianElimination {
     case OnlyLeft(zeroHeight: H - 1, ev: Evidence[H - 1 > 0], wIs1: W =:= 1)
     case OnlyLead(hIs1: H =:= 1, wIs1: W =:= 1)
 
+  import SubtractedDown.*
+
   private def subtractDown[H <: Int, W <: Int, A: Div: Mul: Sub: Zero](
     topVectorLead: A,
     maybeTopVectorTail: Either[W =:= 1, Vector[W - 1, A]],
     maybeTailMatrix: Either[H =:= 1, Matrix[H - 1, W, A]],
   ): SubtractedDown[H, W, A] =
-    import SubtractedDown.*
     (maybeTopVectorTail, maybeTailMatrix) match
       case (Right(topVectorTail), Right(tailMatrix)) =>
         val subtractedMatrix = tailMatrix.mapRows { tailMatrixRow =>
-          val rowLead                   = tailMatrixRow.head
-          val rowTail: Vector[W - 1, A] = tailMatrixRow.tail(using topVectorTail.sizeEvidence)
+          val rowLead = tailMatrixRow.head
+          val rowTail = tailMatrixRow.tail(using topVectorTail.sizeEvidence)
           if rowLead == Zero.of[A] then rowTail
           else Vector.map2(rowTail, topVectorTail)(subtractBy(rowLead / topVectorLead))
         }
@@ -80,12 +77,12 @@ object GaussianElimination {
   ): SubMatrixResult[H, W, A] =
     val SubMatrixResult(downRightMatrix, toSubtract) = recursive(downRightMatrixToProcess)
 
-    val subtracted: Node.Artificial[W - 1, A] = subtractUp(topTail, toSubtract).divideBy(topLead)
+    val subtracted: Node.Processed[W - 1, A] = subtractUp(topTail, toSubtract).divideBy(topLead)
 
     val topVector: Vector[W, A]               = One.of[A] +: subtracted.toVector
     val zeroedDownMatrix: Matrix[H - 1, W, A] = downRightMatrix.mapRows(Zero.of[A] +: _)
 
-    SubMatrixResult[H, W, A](
+    SubMatrixResult(
       zeroedDownMatrix.addTop(topVector),
       Trapezoid.Next(subtracted, toSubtract),
     )
@@ -94,26 +91,24 @@ object GaussianElimination {
     topLead: A,
     toProcess: SubtractedDown[H, W, A],
   ): SubMatrixResult[H, W, A] =
-    import SubtractedDown.*
     toProcess match
       case ToProcess(topTail, downRight) =>
         onDownRightMatrix(topLead, topTail, downRight)
       case OnlyTop(topTail, hIs1) =>
         val dividedTail = topTail.map(_ / topLead)
-        SubMatrixResult[H, W, A](
+        SubMatrixResult(
           considering(hIs1) { Matrix(Vector.one[Vector[W, A]](One.of[A] +: dividedTail)) },
           Trapezoid.First(Node.Tail(dividedTail.asRight)),
         )
       case OnlyLeft(height, ev, wIs1) =>
-        val column: Vector[H, A]    = One.of[A] +: Vector.fill[H - 1, A](height)(Zero.of[A])(using ev)
-        val matrix: Matrix[H, W, A] = considering(wIs1) { Matrix(Vector.one(column)).transpose }
-        SubMatrixResult[H, W, A](
-          matrix,
+        val column: Vector[H, A] = One.of[A] +: Vector.fill(height)(Zero.of[A])(using ev)
+        SubMatrixResult(
+          considering(wIs1) { Matrix(Vector.one(column)).transpose },
           Trapezoid.First(Node.Tail(wIs1.asLeft)),
         )
       case OnlyLead(hIs1, wIs1) =>
-        SubMatrixResult[H, W, A](
-          considering(hIs1, wIs1) { Matrix[H, W, A](Vector.one[Vector[W, A]](Vector.one(One.of[A]))) },
+        SubMatrixResult(
+          considering(hIs1, wIs1) { Matrix(Vector.one[Vector[W, A]](Vector.one(One.of[A]))) },
           Trapezoid.First(Node.Tail(wIs1.asLeft)),
         )
 
@@ -125,10 +120,13 @@ object GaussianElimination {
     maybeRightMatrixToProcess match
       case Right(rightMatrixToProcess) =>
         val SubMatrixResult(rightMatrix, toSubtract) = recursive(rightMatrixToProcess)
-        SubMatrixResult(rightMatrix.addLeft(zeroColumn), Trapezoid.Next(Trapezoid.ZeroColumn, toSubtract))
+        SubMatrixResult(
+          rightMatrix.addLeft(zeroColumn),
+          Trapezoid.Next(Trapezoid.ZeroColumn, toSubtract),
+        )
       case Left(wIs1) =>
         SubMatrixResult(
-          considering(wIs1) { Matrix(zeroColumn.map(zero => Vector.one[A](zero))) },
+          considering(wIs1) { Matrix(zeroColumn.map(zero => Vector.one(zero))) },
           Trapezoid.First(Trapezoid.ZeroColumn),
         )
 
