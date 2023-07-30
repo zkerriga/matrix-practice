@@ -13,7 +13,6 @@ trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[S
   def apply[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Size]): A
   def tail: Either[Size =:= 1, Vector[Size - 1, A]]
   def tail(using Evidence[Size > 1]): Vector[Size - 1, A]
-  def init: Either[Size =:= 1, Vector[Size - 1, A]]
 
   def +:[B >: A](a: B): Vector[Size + 1, B]
   def :+[B >: A](a: B): Vector[Size + 1, B]
@@ -77,9 +76,6 @@ object Vector:
 
     def tail(using Evidence[Size > 1]): Vector[Size - 1, A] =
       Impl(size |- 1, vec.tail)
-
-    def init: Either[Size =:= 1, Vector[Size - 1, A]] =
-      Either.cond(size > 1, Impl(size |- 1, vec.init)(using guaranteed), sameGuaranteed)
 
     def +:[B >: A](a: B): Vector[Size + 1, B] =
       Impl(size |+ 1, a +: vec)
