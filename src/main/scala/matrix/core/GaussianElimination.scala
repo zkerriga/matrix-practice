@@ -33,6 +33,16 @@ object GaussianElimination {
     given c6[S <: Int]: Conversion[S =:= 1, S - 1 =:= 0] = _.asInstanceOf
 
     given c7[W <: Int]: Conversion[Evidence[W - 1 > 0], Evidence[W > 1]] = _.asInstanceOf
+
+    def considering[A, B](a: A)(f: A ?=> B): B = {
+      given A = a
+      f
+    }
+    def considering[A, B, C](a: A, b: B)(f: (A, B) ?=> C): C = {
+      given A = a
+      given B = b
+      f
+    }
   }
 
   def emap2[E, A, B, C](aE: Either[E, A], bE: Either[E, B])(f: (A, B) => C): Either[E, C] =
@@ -41,44 +51,38 @@ object GaussianElimination {
       case (Left(error), _)     => Left(error)
       case (_, Left(error))     => Left(error)
 
-  case class SubMatrixResult[H <: Int, W <: Int, A](
+  private case class SubMatrixResult[H <: Int, W <: Int, A](
     subMatrix: Matrix[H, W, A],
     toSubtractAbove: NodeTrap[W - 1, A],
   )
 
-  def subtractBy[A: Mul: Sub](coefficient: A)(x: A, base: A): A = x - base * coefficient
+  private def subtractBy[A: Mul: Sub](coefficient: A)(x: A, base: A): A = x - base * coefficient
 
-  import lemmas.given
+  import lemmas.{considering, given}
 
-  def desplitTop[H <: Int, W <: Int, A](
+  private def desplitTop[H <: Int, W <: Int, A](
     top: Vector[W, A],
     tail: Either[H =:= 1, Matrix[H - 1, W, A]],
   ): Matrix[H, W, A] =
     tail match
       case Right(tailMatrix) => tailMatrix.addTop(top)
-      case Left(is1) =>
-        given =:=[H, 1] = is1
-        Matrix(Vector.one(top))
+      case Left(hIs1)        => considering(hIs1) { Matrix(Vector.one(top)) }
 
-  def desplit[Size <: Int, A](lead: A, tail: Either[Size =:= 1, Vector[Size - 1, A]]): Vector[Size, A] =
+  private def desplit[Size <: Int, A](lead: A, tail: Either[Size =:= 1, Vector[Size - 1, A]]): Vector[Size, A] =
     tail match
       case Right(tailVector) => lead +: tailVector
-      case Left(is1) =>
-        given =:=[Size, 1] = is1 // todo: using close?
-        Vector.one(lead)
+      case Left(sizeIs1)     => considering(sizeIs1) { Vector.one(lead) }
 
-  //
-
-  sealed trait Node[Size <: Int, A]:
+  private sealed trait Node[Size <: Int, A]:
     def divideBy(lead: A)(using Div[A]): Node[Size, A]
 
-  object Node:
+  private object Node:
     sealed trait Artificial[Size <: Int, A](value: A, next: Node[Size - 1, A]) extends Node[Size, A]:
       def divideBy(lead: A)(using Div[A]): Node.Artificial[Size, A]
       def toVector: Vector[Size, A] =
         next match
-          case node @ Skip(_, _) => (value +: node.toVector).asInstanceOf[Vector[Size, A]] // todo: fix
-          case node @ Zero(_, _) => (value +: node.toVector).asInstanceOf[Vector[Size, A]] // todo: fix
+          case node @ Skip(_, _) => value +: node.toVector
+          case node @ Zero(_, _) => value +: node.toVector
           case Tail(tail)        => desplit(value, tail)
 
     case class Skip[Size <: Int, A](a: A, next: Node[Size - 1, A]) extends Artificial[Size, A](a, next):
@@ -116,14 +120,14 @@ object GaussianElimination {
             case Skip(a, next)    => base
             case Zero(zero, next) => base
 
-  case object ZeroColumn
-  type ZeroColumn = ZeroColumn.type
+  private case object ZeroColumn
+  private type ZeroColumn = ZeroColumn.type
 
-  enum NodeTrap[W <: Int, A]:
+  private enum NodeTrap[W <: Int, A]:
     case First(down: ZeroColumn | Node.Tail[W, A])
     case Next(down: ZeroColumn | Node.Artificial[W, A], next: NodeTrap[W - 1, A])
 
-  def process[W <: Int, A: Mul: Sub: Zero](
+  private def process[W <: Int, A: Mul: Sub: Zero](
     base: Vector[W, A],
     trap: NodeTrap[W - 1, A],
   ): Node.Artificial[W, A] =
@@ -150,15 +154,13 @@ object GaussianElimination {
           case node @ Node.Skip(_, _) => onArtificial(node)
           case node @ Node.Zero(_, _) => onArtificial(node)
 
-  //
-
-  enum SubtractedDown[H <: Int, W <: Int, A]:
+  private enum SubtractedDown[H <: Int, W <: Int, A]:
     case ToProcess(topTail: Vector[W - 1, A], downRight: Matrix[H - 1, W - 1, A])
     case OnlyTop(topTail: Vector[W - 1, A], hIs1: H =:= 1)
     case OnlyLeft(zeroHeight: H - 1, ev: Evidence[H - 1 > 0], wIs1: W =:= 1)
     case OnlyLead(hIs1: H =:= 1, wIs1: W =:= 1)
 
-  def subtractDown[H <: Int, W <: Int, A: Div: Mul: Sub: Zero](
+  private def subtractDown[H <: Int, W <: Int, A: Div: Mul: Sub: Zero](
     topVectorLead: A,
     maybeTopVectorTail: Either[W =:= 1, Vector[W - 1, A]],
     maybeTailMatrix: Either[H =:= 1, Matrix[H - 1, W, A]],
@@ -177,27 +179,24 @@ object GaussianElimination {
       case (Left(wIs1), Right(tailMatrix))    => OnlyLeft(tailMatrix.height, tailMatrix.heightEvidence, wIs1)
       case (Left(wIs1), Left(hIs1))           => OnlyLead(hIs1, wIs1)
 
-  def onDownRightMatrix[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One](
+  private def onDownRightMatrix[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One](
     topLead: A,
     topTail: Vector[W - 1, A],
     downRightMatrixToProcess: Matrix[H - 1, W - 1, A],
   ): SubMatrixResult[H, W, A] =
     val SubMatrixResult(downRightMatrix, toSubtract) = recursive(downRightMatrixToProcess)
 
-    val subtractedNode: Node.Artificial[W - 1, A] =
-      process(topTail, toSubtract).divideBy(topLead)
+    val subtracted: Node.Artificial[W - 1, A] = process(topTail, toSubtract).divideBy(topLead)
 
-    val subtracted: Vector[W - 1, A] = subtractedNode.toVector
-
-    val topVector: Vector[W, A]               = One.of[A] +: subtracted
+    val topVector: Vector[W, A]               = One.of[A] +: subtracted.toVector
     val zeroedDownMatrix: Matrix[H - 1, W, A] = downRightMatrix.mapRows(Zero.of[A] +: _)
 
     SubMatrixResult[H, W, A](
       zeroedDownMatrix.addTop(topVector),
-      NodeTrap.Next(subtractedNode, toSubtract),
+      NodeTrap.Next(subtracted, toSubtract),
     )
 
-  def onDownSubtraction[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One](
+  private def onDownSubtraction[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One](
     topLead: A,
     toProcess: SubtractedDown[H, W, A],
   ): SubMatrixResult[H, W, A] =
@@ -208,24 +207,21 @@ object GaussianElimination {
       case OnlyTop(topTail, hIs1) =>
         val dividedTail = topTail.map(_ / topLead)
         SubMatrixResult[H, W, A](
-          subMatrix = desplitTop(One.of[A] +: dividedTail, Left(hIs1)),
-          toSubtractAbove = NodeTrap.First(Node.Tail(Right(dividedTail))),
+          considering(hIs1) { Matrix(Vector.one[Vector[W, A]](One.of[A] +: dividedTail)) },
+          NodeTrap.First(Node.Tail(Right(dividedTail))),
         )
       case OnlyLeft(zeroHeight, ev, wIs1) =>
-        given =:=[W, 1]             = wIs1
         val zero                    = Zero.of[A]
         val column: Vector[H, A]    = One.of[A] +: Vector.fill[H - 1, A](zeroHeight)(zero)(using ev)
-        val matrix: Matrix[H, W, A] = Matrix(Vector.one(column)).transpose
+        val matrix: Matrix[H, W, A] = considering(wIs1) { Matrix(Vector.one(column)).transpose }
         SubMatrixResult[H, W, A](
-          subMatrix = matrix,
-          toSubtractAbove = NodeTrap.First(Node.Tail(Left(wIs1))),
+          matrix,
+          NodeTrap.First(Node.Tail(Left(wIs1))),
         )
       case OnlyLead(hIs1, wIs1) =>
-        given =:=[H, 1] = hIs1
-        given =:=[W, 1] = wIs1
         SubMatrixResult[H, W, A](
-          subMatrix = Matrix[1, 1, A](Vector.one(Vector.one(One.of[A]))),
-          toSubtractAbove = NodeTrap.First(Node.Tail(Left(wIs1))),
+          considering(hIs1, wIs1) { Matrix[H, W, A](Vector.one[Vector[W, A]](Vector.one(One.of[A]))) },
+          NodeTrap.First(Node.Tail(Left(wIs1))),
         )
 
   private def dropZeroColumn[H <: Int, W <: Int, A](
@@ -248,13 +244,12 @@ object GaussianElimination {
         val SubMatrixResult(rightMatrix, toSubtract) = recursive(rightMatrixToProcess)
         SubMatrixResult(rightMatrix.addLeft(zeroColumn), NodeTrap.Next(ZeroColumn, toSubtract))
       case Left(wIs1) =>
-        given =:=[W, 1] = wIs1
         SubMatrixResult(
-          Matrix(zeroColumn.map(zero => Vector.one[A](zero))),
+          considering(wIs1) { Matrix(zeroColumn.map(zero => Vector.one[A](zero))) },
           NodeTrap.First(ZeroColumn),
         )
 
-  def moveNonZeroLeadRowToTop[H <: Int, W <: Int, A: Zero](matrix: Matrix[H, W, A]): Matrix[H, W, A] =
+  private def moveNonZeroLeadRowToTop[H <: Int, W <: Int, A: Zero](matrix: Matrix[H, W, A]): Matrix[H, W, A] =
     val topVector = matrix.topRow
     if topVector.head != Zero.of[A] then matrix
     else
@@ -268,14 +263,13 @@ object GaussianElimination {
               case Right(tailMatrix) => moving(tailMatrix, skipped.addDown(topVector))
               case _                 => matrix
           else
-            val result: Matrix[H - 1, W, A] = maybeTailMatrix match
-              case Right(tailMatrix) => tailMatrix.addTop(skipped)
-              case Left(hIs1) =>
-                given =:=[H - I, 1] = hIs1
-                skipped
-            result.addTop(topVector)
+            val rest: Matrix[H - 1, W, A] =
+              maybeTailMatrix match
+                case Right(tailMatrix) => tailMatrix.addTop(skipped)
+                case Left(hIs1)        => considering(hIs1) { skipped }
+            rest.addTop(topVector)
         }
-        moving[1](tailMatrix, Matrix { Vector.one(topVector) })
+        moving[1](tailMatrix, Matrix(Vector.one(topVector)))
       }
 
   private def recursive[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One](
