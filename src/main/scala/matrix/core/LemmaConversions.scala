@@ -25,13 +25,6 @@ private[core] object LemmaConversions {
 
   private given [A, B](using same: A =:= B): =:=[B, A] = same.flip
 
-  given c11[H <: Int, I <: Int, W <: Int, A]: Conversion[Matrix[H - I - 1, W, A], Matrix[H - (I + 1), W, A]] =
-    _.asInstanceOf
-  given c12[H <: Int, I <: Int, W <: Int, A]: Conversion[Matrix[I + (H - I - 1), W, A], Matrix[H - 1, W, A]] =
-    _.asInstanceOf
-  given c13[H <: Int, I <: Int, W <: Int, A](using H - I =:= 1): Conversion[Matrix[I, W, A], Matrix[H - 1, W, A]] =
-    _.asInstanceOf
-
   given `Matrix[H1 => H2, W, A]`[H1 <: Int, H2 <: Int, W <: Int, A](using
     H1 =:= H2
   ): Conversion[Matrix[H1, W, A], Matrix[H2, W, A]] =
