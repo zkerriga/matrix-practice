@@ -6,12 +6,20 @@ import math.syntax.*
 import lemmas.given
 
 import scala.collection.immutable.Vector as StdVec
-import scala.compiletime.ops.int.>
+import scala.compiletime.ops.int.{>, -, +}
 import scala.math.Ordering.Implicits.*
 
 trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[Size > 0]):
   def apply[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Size]): A
+  def tail: Either[Size =:= 1, Vector[Size - 1, A]]
+  def tail(using Evidence[Size > 1]): Vector[Size - 1, A]
+
+  def +:[B >: A](a: B): Vector[Size + 1, B]
+  def :+[B >: A](a: B): Vector[Size + 1, B]
+  def ++[S <: Int, B >: A](other: Vector[S, B]): Vector[Size + S, B]
+
   def head: A = apply(0)
+  def last: A = apply((size - 1).asInstanceOf[(Size - 1) & Singleton])(using guaranteed)
 
   infix def *[B, C](scalar: B)(using HMul[A, B, C]): Vector[Size, C]              = map(_ * scalar)
   infix def +[B, C](other: Vector[Size, B])(using HAdd[A, B, C]): Vector[Size, C] = Vector.map2(this, other)(_ + _)
@@ -40,6 +48,7 @@ trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[S
 
   def map[B](f: A => B): Vector[Size, B]
   def reduceLeft[B >: A](op: (B, A) => B): B
+  def foldLeft[B](z: B)(op: (B, A) => B): B
 
   def sum[A1 >: A: Add]: A1 = reduceLeft(_ + _)
 
@@ -53,15 +62,34 @@ trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[S
   )
 
 object Vector:
+  extension [Size <: Int](size: Size)
+    private infix def |-[S <: Int](s: S): Size - S = (size - s).asInstanceOf
+    private infix def |+[S <: Int](s: S): Size + S = (size + s).asInstanceOf
+
   private class Impl[Size <: Int, +A](size: Size, vec: StdVec[A])(using Evidence[Size > 0])
       extends Vector[Size, A](size):
     def apply[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Size]): A =
       vec(index)
 
+    def tail: Either[Size =:= 1, Vector[Size - 1, A]] =
+      Either.cond(size > 1, Impl(size |- 1, vec.tail)(using guaranteed), sameGuaranteed)
+
+    def tail(using Evidence[Size > 1]): Vector[Size - 1, A] =
+      Impl(size |- 1, vec.tail)
+
+    def +:[B >: A](a: B): Vector[Size + 1, B] =
+      Impl(size |+ 1, a +: vec)
+    def :+[B >: A](a: B): Vector[Size + 1, B] =
+      Impl(size |+ 1, vec :+ a)
+
+    def ++[S <: Int, B >: A](other: Vector[S, B]): Vector[Size + S, B] =
+      import other.sizeEvidence
+      Impl(size |+ other.size, vec ++ StdVec.tabulate(other.size)(index => other(index)(using guaranteed)))
+
     def map[B](f: A => B): Vector[Size, B] =
       Impl(size, vec.map(f))
-    def reduceLeft[B >: A](op: (B, A) => B): B =
-      vec.reduceLeft(op)
+    def reduceLeft[B >: A](op: (B, A) => B): B = vec.reduceLeft(op)
+    def foldLeft[B](z: B)(op: (B, A) => B): B  = vec.foldLeft(z)(op)
 
     override def toString: String = vec.mkString("[", ", ", "]")
   end Impl
@@ -104,7 +132,8 @@ object Vector:
     val cleanUnion = unionEvidence.liftCo[[x] =>> Vector[Size, x]]
     cleanSize.andThen(cleanUnion)(make(tuple))
 
-  def of[A](value: A): Vector[1, A] = make(value *: EmptyTuple)
+  def one[A](value: A): Vector[1, A] = make(value *: EmptyTuple)
+  def of[A](value: A): Vector[1, A]  = one(value)
 
   type OnEvincedIndex[Size <: Int, I <: Int, A] = Evidence[I IsIndexFor Size] ?=> A
   type Tabulate[Size <: Int, A]                 = (index: Int) => OnEvincedIndex[Size, index.type, A]
@@ -117,6 +146,9 @@ object Vector:
    */
   def tabulate[Size <: Int, A](size: Size)(f: Tabulate[Size, A])(using Evidence[Size > 0]): Vector[Size, A] =
     Impl(size, StdVec.tabulate(size) { index => f(index)(using guaranteed) })
+
+  def fill[Size <: Int, A](size: Size)(elem: => A)(using Evidence[Size > 0]): Vector[Size, A] =
+    Impl(size, StdVec.fill(size)(elem))
 
   /**
    * similar to [[tabulate]], but instead of creating a [[Vector]] it immediately reduces all the values

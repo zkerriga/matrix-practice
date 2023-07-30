@@ -3,6 +3,7 @@ package matrix
 import math.*
 import math.aliases.*
 import math.syntax.*
+import lemmas.given
 
 import scala.compiletime.ops.int.*
 
@@ -15,6 +16,15 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
 
   def getRow[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Height]): Vector[Width, A]
   def getColumn[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Width]): Vector[Height, A]
+
+  def topRow: Vector[Width, A] = getRow(0)(using guaranteed)
+  def topTail: Either[Height =:= 1, Matrix[Height - 1, Width, A]]
+  def leftTail(using Evidence[Width > 1]): Matrix[Height, Width - 1, A]
+
+  def addTop[B >: A](top: Vector[Width, B]): Matrix[Height + 1, Width, B]
+  def addDown[B >: A](down: Vector[Width, B]): Matrix[Height + 1, Width, B]
+  def addLeft[B >: A](left: Vector[Height, B]): Matrix[Height, Width + 1, B]
+  def addTop[Height1 <: Int, B >: A](top: Matrix[Height1, Width, B]): Matrix[Height1 + Height, Width, B]
 
   def apply[Row <: Int & Singleton, Column <: Int & Singleton](row: Row, column: Column)(using
     Evidence[Row IsIndexFor Height],
@@ -56,7 +66,18 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
       apply(row, column)
     }
 
-  def map[B](f: A => B): Matrix[Height, Width, B]
+  /**
+   * alias for the Gaussian Elimination algorithm
+   * @see
+   *   [[matrix.core.GaussianElimination]] documentaion
+   */
+  def rowEchelon[A1 >: A: Div: Mul: Sub: Zero: One: Eq]: Matrix[Height, Width, A1] =
+    core.GaussianElimination.on[Height, Width, A1](this)
+
+  def mapRows[Width2 <: Int, B](f: Vector[Width, A] => Vector[Width2, B]): Matrix[Height, Width2, B]
+  def map[B](f: A => B): Matrix[Height, Width, B] = mapRows(_.map(f))
+
+  def foldLeft[B](z: B)(op: (B, A) => B): B
 
   override def equals(obj: Any): Boolean = (this eq obj.asInstanceOf[AnyRef]) || (obj match
     case other: Matrix[Height @unchecked, Width @unchecked, A @unchecked] =>
@@ -83,22 +104,36 @@ object Matrix:
     def getColumn[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Width]): Vector[Height, A] =
       Vector.tabulate[Height, A](height) { row => getRow(row).apply[I](index) }
 
-    def map[B](f: A => B): Matrix[Height, Width, B] =
-      Impl(height, width, table.map(_.map(f)))
+    def topTail: Either[Height =:= 1, Matrix[Height - 1, Width, A]] =
+      table.tail.map(Matrix(_))
+    def leftTail(using Evidence[Width > 1]): Matrix[Height, Width - 1, A] =
+      Matrix(table.map(_.tail))
+
+    def addTop[B >: A](vector: Vector[Width, B]): Matrix[Height + 1, Width, B] =
+      Matrix(vector +: table)
+    def addDown[B >: A](down: Vector[Width, B]): Matrix[Height + 1, Width, B] =
+      Matrix(table :+ down)
+    def addLeft[B >: A](left: Vector[Height, B]): Matrix[Height, Width + 1, B] =
+      Matrix(Vector.map2(left, table)(_ +: _))
+    def addTop[Height1 <: Int, B >: A](top: Matrix[Height1, Width, B]): Matrix[Height1 + Height, Width, B] =
+      import top.heightEvidence
+      Matrix(Vector.tabulate[Height1, Vector[Width, B]](top.height) { index => top.getRow(index) } ++ table)
+
+    def mapRows[Width2 <: Int, B](f: Vector[Width, A] => Vector[Width2, B]): Matrix[Height, Width2, B] =
+      Matrix(table.map(f))
+
+    def foldLeft[B](z: B)(op: (B, A) => B): B = table.foldLeft(z) { (acc, vector) => vector.foldLeft(acc)(op) }
 
     override def toString: String = table.toString
   end Impl
 
   /* CONSTRUCTORS */
 
-  def apply[Height <: Int, Width <: Int, A](table: Vector[Height, Vector[Width, A]])(using
-    ValueOf[Height],
-    ValueOf[Width],
-  ): Matrix[Height, Width, A] =
+  def apply[Height <: Int, Width <: Int, A](table: Vector[Height, Vector[Width, A]]): Matrix[Height, Width, A] =
     val row = table.head
     import row.sizeEvidence
     import table.sizeEvidence
-    Impl(valueOf, valueOf, table)
+    Impl(table.size, row.size, table)
 
   type OnEvincedIndexes[Height <: Int, Width <: Int, Row <: Int, Column <: Int, A] =
     (Evidence[Row IsIndexFor Height], Evidence[Column IsIndexFor Width]) ?=> A
