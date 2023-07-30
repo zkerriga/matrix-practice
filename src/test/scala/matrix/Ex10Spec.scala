@@ -4,7 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.apache.commons.math3.fraction.{BigFraction, Fraction}
 import math.aliases.*
-import math.{One, Zero}
+import math.{One, Zero, HEq}
 
 class Ex10Spec extends AnyFlatSpec with Matchers:
   given Div[Fraction]  = (f1: Fraction, f2: Fraction) => f1.divide(f2)
@@ -12,12 +12,14 @@ class Ex10Spec extends AnyFlatSpec with Matchers:
   given Sub[Fraction]  = (f1: Fraction, f2: Fraction) => f1.subtract(f2)
   given Zero[Fraction] = Zero(Fraction.ZERO)
   given One[Fraction]  = One(Fraction.ONE)
+  given Eq[Fraction]   = HEq.fromUniversal
 
   given Div[BigFraction]  = (f1: BigFraction, f2: BigFraction) => f1.divide(f2)
   given Mul[BigFraction]  = (f1: BigFraction, f2: BigFraction) => f1.multiply(f2)
   given Sub[BigFraction]  = (f1: BigFraction, f2: BigFraction) => f1.subtract(f2)
   given Zero[BigFraction] = Zero(BigFraction.ZERO)
   given One[BigFraction]  = One(BigFraction.ONE)
+  given Eq[BigFraction]   = HEq.fromUniversal
 
   extension [H <: Int, W <: Int](matrix: Matrix[H, W, Int])
     def toFraction: Matrix[H, W, Fraction]       = matrix.map(Fraction(_))
@@ -235,17 +237,28 @@ class Ex10Spec extends AnyFlatSpec with Matchers:
   }
 
   it should "make as less calculations as posible" in {
-    case class Complexity[A](value: A, div: Int = 0, mul: Int = 0, sum: Int = 0)
+    case class Complexity[A](value: A)
     object Complexity:
+      var divCounter: Int = 0
+      var mulCounter: Int = 0
+      var subCounter: Int = 0
+
+      given [A: Eq]: Eq[Complexity[A]]     = (a, b) => a.value == b.value
       given [A: Zero]: Zero[Complexity[A]] = Zero(Complexity(Zero.of[A]))
       given [A: One]: One[Complexity[A]]   = One(Complexity(One.of[A]))
       import math.syntax.*
       given [A: Div]: Div[Complexity[A]] =
-        (a1, a2) => Complexity(a1.value / a2.value, a1.div + a2.div + 1, a1.mul + a2.mul, a1.sum + a2.sum)
+        (a1, a2) =>
+          divCounter += 1
+          Complexity(a1.value / a2.value)
       given [A: Mul]: Mul[Complexity[A]] =
-        (a1, a2) => Complexity(a1.value * a2.value, a1.div + a2.div, a1.mul + a2.mul + 1, a1.sum + a2.sum)
+        (a1, a2) =>
+          mulCounter += 1
+          Complexity(a1.value * a2.value)
       given [A: Sub]: Sub[Complexity[A]] =
-        (a1, a2) => Complexity(a1.value - a2.value, a1.div + a2.div, a1.mul + a2.mul + 1, a1.sum + a2.sum + 1)
+        (a1, a2) =>
+          subCounter += 1
+          Complexity(a1.value - a2.value)
 
     // wiki: https://en.wikipedia.org/wiki/Gaussian_elimination#Example_of_the_algorithm
     val matrix2: Matrix[3, 4, Complexity[Fraction]] = Matrix {
@@ -258,8 +271,12 @@ class Ex10Spec extends AnyFlatSpec with Matchers:
 
     val result = matrix2.rowEchelon
 
-    val (div, mul, sum) = result.foldLeft((0, 0, 0)) { (acc, a) => (acc(0) + a.div, acc(1) + a.mul, acc(2) + a.sum) }
-    div shouldBe 53
-    mul shouldBe 100
-    sum shouldBe 50
+    val N = 3
+    // wiki: https://en.wikipedia.org/wiki/Gaussian_elimination#Computational_efficiency
+    val theoreticalDiv: Int    = N * (N + 1) / 2                         // 6
+    val theoreticalMulSub: Int = (2 * N * N * N + 3 * N * N - 5 * N) / 6 // 11
+
+    Complexity.divCounter shouldBe theoreticalDiv
+    Complexity.mulCounter shouldBe theoreticalMulSub
+    Complexity.subCounter shouldBe theoreticalMulSub
   }

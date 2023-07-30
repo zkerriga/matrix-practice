@@ -5,3 +5,4 @@ object aliases:
   export HDiv.Div
   export HMul.Mul
   export HSub.Sub
+  export HEq.Eq

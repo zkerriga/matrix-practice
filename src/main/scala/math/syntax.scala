@@ -5,3 +5,4 @@ object syntax:
   export HDiv./
   export HMul.*
   export HSub.-
+  export HEq.{===, =!=}

@@ -89,7 +89,7 @@ object GaussianElimination {
 
   import SubtractedDown.*
 
-  private def subtractDown[H <: Int, W <: Int, A: Div: Mul: Sub: Zero](
+  private def subtractDown[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: Eq](
     topVectorLead: A,
     maybeTopVectorTail: Either[W =:= 1, Vector[W - 1, A]],
     maybeTailMatrix: Either[H =:= 1, Matrix[H - 1, W, A]],
@@ -99,7 +99,7 @@ object GaussianElimination {
         val subtractedMatrix = tailMatrix.mapRows { tailMatrixRow =>
           val rowLead = tailMatrixRow.head
           val rowTail = tailMatrixRow.tail(using topVectorTail.sizeEvidence)
-          if rowLead == Zero.of[A] then rowTail
+          if rowLead === Zero.of[A] then rowTail
           else Vector.map2(rowTail, topVectorTail)(subtractBy(rowLead / topVectorLead))
         }
         ToProcess(topVectorTail, subtractedMatrix)
@@ -107,7 +107,7 @@ object GaussianElimination {
       case (Left(wIs1), Right(tailMatrix))    => OnlyLeft(tailMatrix.height, tailMatrix.heightEvidence, wIs1)
       case (Left(wIs1), Left(hIs1))           => OnlyLead(hIs1, wIs1)
 
-  private def onDownRightMatrix[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One](
+  private def onDownRightMatrix[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One: Eq](
     topLead: A,
     topTail: Vector[W - 1, A],
     downRightMatrixToProcess: Matrix[H - 1, W - 1, A],
@@ -124,7 +124,7 @@ object GaussianElimination {
       Trapezoid.Next(subtracted, toSubtract),
     )
 
-  private def onDownSubtraction[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One](
+  private def onDownSubtraction[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One: Eq](
     topLead: A,
     toProcess: SubtractedDown[H, W, A],
   ): SubMatrixResult[H, W, A] =
@@ -149,7 +149,7 @@ object GaussianElimination {
           Trapezoid.First(Node.Tail(wIs1.asLeft)),
         )
 
-  private def onZeroColumn[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One](
+  private def onZeroColumn[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One: Eq](
     height: H,
     maybeRightMatrixToProcess: Either[W =:= 1, Matrix[H, W - 1, A]],
   )(using Evidence[H > 0]): SubMatrixResult[H, W, A] =
@@ -167,16 +167,16 @@ object GaussianElimination {
           Trapezoid.First(Trapezoid.ZeroColumn),
         )
 
-  private def moveNonZeroLeadRowToTop[H <: Int, W <: Int, A: Zero](matrix: Matrix[H, W, A]): Matrix[H, W, A] =
+  private def moveNonZeroLeadRowToTop[H <: Int, W <: Int, A: Zero: Eq](matrix: Matrix[H, W, A]): Matrix[H, W, A] =
     val topVector = matrix.topRow
-    if topVector.head != Zero.of[A] then matrix
+    if topVector.head =!= Zero.of[A] then matrix
     else
       matrix.topTail.toOption.fold(matrix) { tailMatrix =>
         @tailrec
         def moving[I <: Int](left: Matrix[H - I, W, A], skipped: Matrix[I, W, A]): Matrix[H, W, A] = {
           val topVector       = left.topRow
           val maybeTailMatrix = left.topTail
-          if topVector.head == Zero.of[A] then
+          if topVector.head === Zero.of[A] then
             maybeTailMatrix match
               case Right(tailMatrix) => moving(tailMatrix, skipped.addDown(topVector))
               case _                 => matrix
@@ -190,7 +190,7 @@ object GaussianElimination {
         moving[1](tailMatrix, Matrix(Vector.one(topVector)))
       }
 
-  private def recursive[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One](
+  private def recursive[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One: Eq](
     matrix: Matrix[H, W, A]
   ): SubMatrixResult[H, W, A] = {
     val swapped = moveNonZeroLeadRowToTop(matrix)
@@ -200,7 +200,7 @@ object GaussianElimination {
     val topVectorLead      = topVector.head
     val maybeTopVectorTail = topVector.tail
 
-    if topVectorLead == Zero.of[A] then
+    if topVectorLead === Zero.of[A] then
       import matrix.heightEvidence
       onZeroColumn(
         matrix.height,
@@ -215,7 +215,7 @@ object GaussianElimination {
       )
   }
 
-  def on[Height <: Int, Width <: Int, A: Div: Mul: Sub: Zero: One](
+  def on[Height <: Int, Width <: Int, A: Div: Mul: Sub: Zero: One: Eq](
     matrix: Matrix[Height, Width, A]
   ): Matrix[Height, Width, A] = recursive(matrix).subMatrix
 }
