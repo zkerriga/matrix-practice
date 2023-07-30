@@ -66,6 +66,11 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
       apply(row, column)
     }
 
+  /**
+   * alias for the Gaussian Elimination algorithm
+   * @see
+   *   [[matrix.core.GaussianElimination]] documentaion
+   */
   def rowEchelon[A1 >: A: Div: Mul: Sub: Zero: One: Eq]: Matrix[Height, Width, A1] =
     core.GaussianElimination.on[Height, Width, A1](this)
 
