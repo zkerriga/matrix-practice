@@ -7,6 +7,6 @@ lazy val root = (project in file("."))
     name := "matrix-practice",
     libraryDependencies ++= Seq(
       "org.scalatest"     %% "scalatest"     % "3.2.15" % Test,
-      "org.apache.commons" % "commons-math3" % "3.6.1",
+      "org.apache.commons" % "commons-math3" % "3.6.1"  % Test,
     ),
   )
