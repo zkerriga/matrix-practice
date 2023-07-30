@@ -178,6 +178,30 @@ class Ex10Spec extends AnyFlatSpec with Matchers:
     matrix1.rowEchelon shouldBe expected1
   }
 
+  it should "return correct result for matrix where height is bigger than width" in {
+    val matrix53: Matrix[5, 3, Fraction] = Matrix {
+      Vector.of(
+        Vector.of(1, 2, 3),
+        Vector.of(4, 5, 6),
+        Vector.of(7, 8, 9),
+        Vector.of(-1, -2, -3),
+        Vector.of(-4, -5, -6),
+      )
+    }.toFraction
+
+    val expected53: Matrix[5, 3, Fraction] = Matrix {
+      Vector.of(
+        Vector.of(1, 0, -1),
+        Vector.of(0, 1, 2),
+        Vector.of(0, 0, 0),
+        Vector.of(0, 0, 0),
+        Vector.of(0, 0, 0),
+      )
+    }.toFraction
+
+    matrix53.rowEchelon shouldBe expected53
+  }
+
   it should "return correct matrix for 1 to 110 matrix" in {
     val matrix1: Matrix[10, 11, Fraction] = Matrix {
       Vector.of(
