@@ -3,6 +3,11 @@ package matrix
 import scala.compiletime.ops.int.*
 import scala.compiletime.ops.boolean.*
 
+/**
+ * @note
+ *   object contains transformations over [[Evidence]] and proofs of [[=:=]] (equality) of expressions. Inequalities and
+ *   Equality are mathematical axioms that follow from associativity and equivalence
+ */
 object lemmas:
   given `A > 1 =:= A - 1 > 0`[A <: Int](using Evidence[A > 1]): Evidence[A - 1 > 0] = guaranteed
   given `A - 1 > 0 =:= A > 1`[A <: Int](using Evidence[A - 1 > 0]): Evidence[A > 1] = guaranteed

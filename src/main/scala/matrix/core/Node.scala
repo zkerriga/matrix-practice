@@ -10,6 +10,14 @@ import matrix.lemmas.given
 
 import scala.compiletime.ops.int.*
 
+/**
+ * This trait is a representation of [[Vector]], in which some are divided into the following categories for the
+ * back-subtraction process in [[matrix.core.GaussianElimination]]:
+ *   - [[Node.Tail]] - vector tail, involved in subtraction and division
+ *   - [[Node.Skip]] - the element under which there is no leading unit, participates in subtraction and division
+ *   - [[Node.Zero]] - the zero element, under which there is a leading unit, does not participate in division and
+ *     subtraction
+ */
 private[core] sealed trait Node[Size <: Int, A]:
   def divideBy(lead: A)(using Div[A]): Node[Size, A]
 
@@ -34,7 +42,6 @@ private[core] object Node:
     case Left(wIs1)  => Tail(wIs1.asLeft)
     case Right(node) => node
 
-  // todo: is it possible to skip => base cases?
   def map2[W <: Int, A](base: Node[W, A], down: Node[W, A])(f: (A, A) => A): Node[W, A] =
     base match
       case Skip(a, next) =>

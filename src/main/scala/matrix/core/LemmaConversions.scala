@@ -4,7 +4,26 @@ import scala.compiletime.ops.int.*
 import matrix.lemmas
 import matrix.{Evidence, Matrix, Vector}
 
-private[core] object LemmaConversions {
+/**
+ * @note
+ *   object contains several [[Conversion]]s for convenient work with [[Matrix]] and [[Vector]] operations that are
+ *   derived from proofs from [[matrix.lemmas]]
+ *
+ * @example
+ *   imagine you're doing the operation of taking the first element from a [[Vector]] and attaching another:
+ *   {{{
+ *     val tail = vector.tail
+ *     val result = element +: tail
+ *   }}}
+ *   the `result` type will be [[Vector]] with `Size - 1 + 1`, which is the same as `Size`. Scala cannot derive type
+ *   equality automatically, but with these [[Conversion]]s it is sufficient to simply specify the final type for the
+ *   operation to convert the size automatically:
+ *   {{{
+ *     val tail = vector.tail
+ *     val result: Vector[Size, A] = element +: tail
+ *   }}}
+ */
+private[core] object LemmaConversions:
   private def gen[F[_], A, B](using same: A =:= B): Conversion[F[A], F[B]] = fA => same.liftCo[F](fA)
 
   private def genMatrixH[H1 <: Int, H2 <: Int, W <: Int, A](using
@@ -56,4 +75,3 @@ private[core] object LemmaConversions {
 
   given `W - 1 > 0 =:= W > 1`[W <: Int]: Conversion[Evidence[W - 1 > 0], Evidence[W > 1]] =
     ev => lemmas.`A - 1 > 0 =:= A > 1`(using ev)
-}

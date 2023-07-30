@@ -1,6 +1,5 @@
 package matrix
 
-import java.util.concurrent.locks.Condition
 import scala.compiletime.ops.boolean.*
 import scala.compiletime.ops.int.*
 

@@ -12,6 +12,41 @@ import matrix.lemmas.given
 import scala.annotation.tailrec
 import scala.compiletime.ops.int.*
 
+/**
+ * My own implementation of Gaussian elimination.
+ *
+ * The algorithm can be represented by the following steps:
+ *   - move to the top of the matrix the row that starts with a non-zero element
+ *   - if the whole column starts with zeros, delete the column and run the algorithm on the remaining matrix
+ *     - add information about the missing column for back-subtraction to the result
+ *   - subtract the top row from all bottom rows to zero out the column on the left, and run the algorithm on the
+ *     modified matrix from the bottom right
+ *     - subtract from the top vector all the bottom lines from the result
+ *     - divide the top vector so that the leading value is one
+ *     - combine the divided vector with the zero column and the resulting bottom right matrix
+ *
+ * @see
+ *   [[https://en.wikipedia.org/wiki/Gaussian_elimination]]
+ * @note
+ *   It is important to note that this algorithm does not claim to be memory efficient, but tries to do as few
+ *   operations on numbers as possible. The goal of this part of the project was to practice dynamic programming using
+ *   size-parameterized matrices and vectors and additional data structures that carry type proofs. The success criteria
+ *   of this algorithm for me are:
+ *   - the algorithm is correct and returns a mathematically correct result for any matrices
+ *   - the algorithm must be applicable to any types that define mathematical operations by type-classes
+ *   - the algorithm does not use the `asInstanceOf` method (the only exception is the mathematical axioms in
+ *     [[matrix.lemmas]])
+ *   - the algorithm does not perform computational operations on numbers that are logically fixed for the result (for
+ *     example, a line that was divided has a `1` at the beginning - this `1` should no longer be used in calculations,
+ *     because all upper lines should realize from the algorithm step that everything above this `1` should be zeroed
+ *     out using only the coefficients from the upper lines; another example, in the process of subtracting a smaller
+ *     line from a larger line, the larger one has values at the beginning that should not be used for subtraction
+ *     because underneath them logically there are only zeros, a number minus `0` multiplied by any coefficient remains
+ *     the same number - such operations should not be performed)
+ *   - operations on matching and verification of entity dimensions must be performed by the compiler (e.g., where a
+ *     proof `Size > 1` is expected, the code may use a proof `Size - 1 > 0`, and the conversion must be performed by
+ *     the compiler).
+ */
 object GaussianElimination {
   private case class SubMatrixResult[H <: Int, W <: Int, A](
     subMatrix: Matrix[H, W, A],
