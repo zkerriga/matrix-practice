@@ -136,7 +136,8 @@ object Vector:
     val cleanUnion = unionEvidence.liftCo[[x] =>> Vector[Size, x]]
     cleanSize.andThen(cleanUnion)(make(tuple))
 
-  def of[A](value: A): Vector[1, A] = make(value *: EmptyTuple)
+  def one[A](value: A): Vector[1, A] = make(value *: EmptyTuple)
+  def of[A](value: A): Vector[1, A]  = one(value)
 
   type OnEvincedIndex[Size <: Int, I <: Int, A] = Evidence[I IsIndexFor Size] ?=> A
   type Tabulate[Size <: Int, A]                 = (index: Int) => OnEvincedIndex[Size, index.type, A]
