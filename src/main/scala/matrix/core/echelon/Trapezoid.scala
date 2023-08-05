@@ -1,4 +1,4 @@
-package matrix.core
+package matrix.core.echelon
 
 import scala.compiletime.ops.int.*
 

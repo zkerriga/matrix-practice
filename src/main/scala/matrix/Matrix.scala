@@ -6,6 +6,7 @@ import math.syntax.*
 import lemmas.given
 
 import scala.compiletime.ops.int.*
+import matrix.core.echelon.GaussianElimination
 
 trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Width)(using
   val heightEvidence: Evidence[Height > 0],
@@ -72,7 +73,7 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
    *   [[matrix.core.GaussianElimination]] documentaion
    */
   def rowEchelon[A1 >: A: Div: Mul: Sub: Zero: One: Eq]: Matrix[Height, Width, A1] =
-    core.GaussianElimination.on[Height, Width, A1](this)
+    GaussianElimination.on[Height, Width, A1](this)
 
   def mapRows[Width2 <: Int, B](f: Vector[Width, A] => Vector[Width2, B]): Matrix[Height, Width2, B]
   def map[B](f: A => B): Matrix[Height, Width, B] = mapRows(_.map(f))
