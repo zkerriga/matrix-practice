@@ -79,7 +79,7 @@ private[matrix] object LemmaConversions:
     W1 =:= W2,
     E1 =:= E2,
   ): Conversion[Either[E1, Matrix[H, W1, A]], Either[E2, Matrix[H, W2, A]]] =
-    _.map(`Matrix[H, W1 => W2, A]`)
+    e1 => `Either[E1 => E2, A]`(e1).map(`Matrix[H, W1 => W2, A]`)
 
   given `S = 1 =:= S - 1 = 0`[S <: Int]: Conversion[S =:= 1, S - 1 =:= 0] =
     eq => lemmas.`A = B =:= A - B = 0`[S, 1](eq)
