@@ -17,6 +17,14 @@ object lemmas:
   given `A - B - C =:= A - (B + C)`[A <: Int, B <: Int, C <: Int]: =:=[A - B - C, A - (B + C)]    = sameGuaranteed
   given `A + (B - A - C) =:= B - C`[A <: Int, B <: Int, C <: Int]: =:=[A + (B - A - C), B - C]    = sameGuaranteed
   given `A - B = C =:= B = A - C`[A <: Int, B <: Int, C <: Int](using A - B =:= C): =:=[B, A - C] = sameGuaranteed
+  given `A - B =:= A - 0 - B`[A <: Int, B <: Int]: =:=[A - B, A - 0 - B]                          = sameGuaranteed
+
+  given `A - B - C = D =:= A - C = B + D`[A <: Int, B <: Int, C <: Int, D <: Int]: =:=[A - B - C =:= D, A - C =:= B + D] =
+    sameGuaranteed
+  given `A - B - C - C =:= A - (B + C) - C`[A <: Int, B <: Int, C <: Int]: =:=[A - B - C - C, A - (B + C) - C] =
+    sameGuaranteed
+  given `A - B - C =:= A - C if B = 0`[A <: Int, B <: Int, C <: Int](using B =:= 0): =:=[A - B - C, A - C] =
+    sameGuaranteed
 
   given [A <: Boolean, B <: Boolean](using Evidence[A], Evidence[B]): Evidence[A && B] = guaranteed
 

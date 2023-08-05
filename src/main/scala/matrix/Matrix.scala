@@ -4,9 +4,11 @@ import math.*
 import math.aliases.*
 import math.syntax.*
 import lemmas.given
+import matrix.core.echelon.GaussianElimination
+import matrix.core.determinant.{DeterminantAlgorithm, LaplaceExpansion}
+import matrix.core.LemmaConversions.`Matrix[H, W1 <= W2, A]`
 
 import scala.compiletime.ops.int.*
-import matrix.core.echelon.GaussianElimination
 
 trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Width)(using
   val heightEvidence: Evidence[Height > 0],
@@ -18,14 +20,21 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
   def getRow[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Height]): Vector[Width, A]
   def getColumn[I <: Int & Singleton](index: I)(using Evidence[I IsIndexFor Width]): Vector[Height, A]
 
-  def topRow: Vector[Width, A] = getRow(0)(using guaranteed)
+  def topRow: Vector[Width, A] = getRow(0)
   def topTail: Either[Height =:= 1, Matrix[Height - 1, Width, A]]
-  def leftTail(using Evidence[Width > 1]): Matrix[Height, Width - 1, A]
+  def topTail(using Evidence[Height > 1]): Matrix[Height - 1, Width, A]
+
+  def leftColumn: Vector[Height, A] = getColumn(0)
+  def leftTail: Either[Width =:= 1, Matrix[Height, Width - 1, A]]
+  def leftTail(using Evidence[Width > 1]): Matrix[Height, Width - 1, A] = mapRows(_.tail)
 
   def addTop[B >: A](top: Vector[Width, B]): Matrix[Height + 1, Width, B]
   def addDown[B >: A](down: Vector[Width, B]): Matrix[Height + 1, Width, B]
   def addLeft[B >: A](left: Vector[Height, B]): Matrix[Height, Width + 1, B]
+  def addRight[B >: A](right: Vector[Height, B]): Matrix[Height, Width + 1, B]
+
   def addTop[Height1 <: Int, B >: A](top: Matrix[Height1, Width, B]): Matrix[Height1 + Height, Width, B]
+  def addLeft[Width1 <: Int, B >: A](left: Matrix[Height, Width1, B]): Matrix[Height, Width1 + Width, B]
 
   def apply[Row <: Int & Singleton, Column <: Int & Singleton](row: Row, column: Column)(using
     Evidence[Row IsIndexFor Height],
@@ -75,6 +84,10 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
   def rowEchelon[A1 >: A: Div: Mul: Sub: Zero: One: Eq]: Matrix[Height, Width, A1] =
     GaussianElimination.on[Height, Width, A1](this)
 
+  def determinant[A1 >: A: Mul: Sub: Add](
+    algorithm: DeterminantAlgorithm[Height, A1] = LaplaceExpansion.determinant
+  )(using Height =:= Width): A1 = algorithm(this)
+
   def mapRows[Width2 <: Int, B](f: Vector[Width, A] => Vector[Width2, B]): Matrix[Height, Width2, B]
   def map[B](f: A => B): Matrix[Height, Width, B] = mapRows(_.map(f))
 
@@ -107,8 +120,12 @@ object Matrix:
 
     def topTail: Either[Height =:= 1, Matrix[Height - 1, Width, A]] =
       table.tail.map(Matrix(_))
-    def leftTail(using Evidence[Width > 1]): Matrix[Height, Width - 1, A] =
-      Matrix(table.map(_.tail))
+    def topTail(using Evidence[Height > 1]): Matrix[Height - 1, Width, A] =
+      Matrix(table.tail)
+
+    def leftTail: Either[Width =:= 1, Matrix[Height, Width - 1, A]] =
+      import matrix.core.LemmaConversions.`W - 1 > 0 =:= W > 1`
+      table.head.tail.map(v => Matrix(table.map(_.tail(using v.sizeEvidence))))
 
     def addTop[B >: A](vector: Vector[Width, B]): Matrix[Height + 1, Width, B] =
       Matrix(vector +: table)
@@ -116,9 +133,14 @@ object Matrix:
       Matrix(table :+ down)
     def addLeft[B >: A](left: Vector[Height, B]): Matrix[Height, Width + 1, B] =
       Matrix(Vector.map2(left, table)(_ +: _))
+    def addRight[B >: A](right: Vector[Height, B]): Matrix[Height, Width + 1, B] =
+      Matrix(Vector.map2(table, right)(_ :+ _))
+
     def addTop[Height1 <: Int, B >: A](top: Matrix[Height1, Width, B]): Matrix[Height1 + Height, Width, B] =
       import top.heightEvidence
       Matrix(Vector.tabulate[Height1, Vector[Width, B]](top.height) { index => top.getRow(index) } ++ table)
+    def addLeft[Width1 <: Int, B >: A](left: Matrix[Height, Width1, B]): Matrix[Height, Width1 + Width, B] =
+      Matrix(Vector.tabulate[Height, Vector[Width1 + Width, B]](height) { index => left.getRow(index) ++ table(index) })
 
     def mapRows[Width2 <: Int, B](f: Vector[Width, A] => Vector[Width2, B]): Matrix[Height, Width2, B] =
       Matrix(table.map(f))
