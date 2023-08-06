@@ -4,7 +4,7 @@ import math.aliases.*
 import math.syntax.*
 import matrix.{Matrix, Vector}
 import matrix.core.MatrixConstructors.*
-import matrix.core.LemmaConversions.{conv, conv2, given}
+import matrix.core.LemmaConversions.given
 import matrix.lemmas.given
 
 import scala.compiletime.ops.int.*
@@ -61,7 +61,7 @@ object LaplaceExpansion:
             f1[S, I + 1, A](
               maybeLeftMatrixAndD = Right(leftMatrix.addRight(currentColumnTail) -> updatedDeterminantAcc),
               currentColumn = rightMatrix.leftColumn,
-              maybeRightMatrix = conv(rightMatrix.leftTail), // todo
+              maybeRightMatrix = rightMatrix.leftTail,
               signCombinator = nextSignCombinator,
               nextSignCombinator = signCombinator,
             )
@@ -70,7 +70,7 @@ object LaplaceExpansion:
     f1[Size, 0, A](
       maybeLeftMatrixAndD = Left(summon[0 =:= 0]),
       currentColumn = matrix.leftColumn,
-      maybeRightMatrix = conv2(matrix.leftTail), // todo
+      maybeRightMatrix = matrix.leftTail,
       signCombinator = add.add,
       nextSignCombinator = sub.subtract,
     )
