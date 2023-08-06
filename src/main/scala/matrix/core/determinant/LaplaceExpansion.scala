@@ -11,7 +11,12 @@ import matrix.lemmas.given
 import scala.annotation.tailrec
 import scala.compiletime.ops.int.*
 
+/**
+ * @see
+ *   [[https://en.wikipedia.org/wiki/Laplace_expansion]]
+ */
 object LaplaceExpansion:
+  // to make it clear what a determinant accumulator is and what a simple value is
   private type DeterminantAcc[A] = A
 
   @tailrec
