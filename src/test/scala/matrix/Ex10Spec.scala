@@ -63,7 +63,7 @@ class Ex10Spec extends AnyFlatSpec with Matchers:
     matrix3.rowEchelon shouldBe matrix1
 
     val matrixR: Matrix[1, 1, Fraction] = Matrix.diagonal(Fraction(-3, 7))
-    matrix3.rowEchelon shouldBe matrix1
+    matrixR.rowEchelon shouldBe matrix1
   }
 
   it should "return the Identity matrix for diagonal matrices" in {

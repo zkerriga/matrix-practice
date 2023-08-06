@@ -23,7 +23,7 @@ import matrix.{Evidence, Matrix, Vector}
  *     val result: Vector[Size, A] = element +: tail
  *   }}}
  */
-private[core] object LemmaConversions:
+private[matrix] object LemmaConversions:
   private def gen[F[_], A, B](using same: A =:= B): Conversion[F[A], F[B]] = fA => same.liftCo[F](fA)
 
   private def genMatrixH[H1 <: Int, H2 <: Int, W <: Int, A](using
@@ -59,6 +59,11 @@ private[core] object LemmaConversions:
   ): Conversion[Matrix[H, W1, A], Matrix[H, W2, A]] =
     genMatrixW[W1, W2, H, A]
 
+  given `Matrix[S1 => S2, S1 => S2, A]`[S1 <: Int, S2 <: Int, A](using
+    S1 =:= S2
+  ): Conversion[Matrix[S1, S1, A], Matrix[S2, S2, A]] =
+    m1 => `Matrix[H, W1 => W2, A]`[S2, S1, S2, A](`Matrix[H1 => H2, W, A]`[S1, S2, S1, A](m1))
+
   given `Vector[S1 => S2, A]`[S1 <: Int, S2 <: Int, A](using S1 =:= S2): Conversion[Vector[S1, A], Vector[S2, A]] =
     genVector[S1, S2, A]
 
@@ -69,6 +74,12 @@ private[core] object LemmaConversions:
     genEither[E1, E2, A]
   given `Either[E1 <= E2, A]`[E1, E2, A](using E2 =:= E1): Conversion[Either[E1, A], Either[E2, A]] =
     genEither[E1, E2, A]
+
+  given `Either[E1 => E2, Matrix[H, W1 => W2, A]]`[E1, E2, W1 <: Int, W2 <: Int, H <: Int, A](using
+    E1 =:= E2,
+    W1 =:= W2,
+  ): Conversion[Either[E1, Matrix[H, W1, A]], Either[E2, Matrix[H, W2, A]]] =
+    e1 => `Either[E1 => E2, A]`[E1, E2, Matrix[H, W1, A]](e1).map(`Matrix[H, W1 => W2, A]`)
 
   given `S = 1 =:= S - 1 = 0`[S <: Int]: Conversion[S =:= 1, S - 1 =:= 0] =
     eq => lemmas.`A = B =:= A - B = 0`[S, 1](eq)
