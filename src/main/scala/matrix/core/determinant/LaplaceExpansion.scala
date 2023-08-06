@@ -4,7 +4,7 @@ import math.aliases.*
 import math.syntax.*
 import matrix.{Matrix, Vector}
 import matrix.core.MatrixConstructors.*
-import matrix.core.LemmaConversions.given
+import matrix.core.LemmaConversions.{conv, conv2, given}
 import matrix.lemmas.given
 
 import scala.compiletime.ops.int.*
@@ -25,10 +25,8 @@ object LaplaceExpansion:
       case Left(iIs0) =>
         maybeRightMatrix match
           case Left(sMinus1IsI) =>
-            considering(iIs0) {
-              given =:=[S - 1, 0]      = sMinus1IsI.asInstanceOf    // todo
-              val column: Vector[1, A] = currentColumn.asInstanceOf // todo
-              determinant1x1(Matrix(Vector.of(column)))
+            considering(iIs0, sMinus1IsI) {
+              determinant1x1(Matrix(Vector.of(currentColumn)))
             }
           case Right(rightMatrix) =>
             val right: Matrix[S, S - 1, A]               = considering(iIs0) { rightMatrix }
@@ -63,7 +61,7 @@ object LaplaceExpansion:
             f1[S, I + 1, A](
               maybeLeftMatrixAndD = Right(leftMatrix.addRight(currentColumnTail) -> updatedDeterminantAcc),
               currentColumn = rightMatrix.leftColumn,
-              maybeRightMatrix = rightMatrix.leftTail,
+              maybeRightMatrix = conv(rightMatrix.leftTail), // todo
               signCombinator = nextSignCombinator,
               nextSignCombinator = signCombinator,
             )
@@ -72,7 +70,10 @@ object LaplaceExpansion:
     f1[Size, 0, A](
       maybeLeftMatrixAndD = Left(summon[0 =:= 0]),
       currentColumn = matrix.leftColumn,
-      maybeRightMatrix = matrix.leftTail,
+      maybeRightMatrix = conv2(matrix.leftTail), // todo
       signCombinator = add.add,
       nextSignCombinator = sub.subtract,
     )
+
+  def on[Size <: Int]: DeterminantAlgorithm[Size] = new:
+    def det[A: Mul: Sub: Add](matrix: Matrix[Size, Size, A]): A = determinant(matrix)

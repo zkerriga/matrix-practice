@@ -25,6 +25,8 @@ object lemmas:
     sameGuaranteed
   given `A - B - C =:= A - C if B = 0`[A <: Int, B <: Int, C <: Int](using B =:= 0): =:=[A - B - C, A - C] =
     sameGuaranteed
+  given `A = 1 if A - 1 = B and B = 0`[A <: Int, B <: Int](using A - 1 =:= B, B =:= 0): =:=[A, 1] =
+    sameGuaranteed
 
   given [A <: Boolean, B <: Boolean](using Evidence[A], Evidence[B]): Evidence[A && B] = guaranteed
 

@@ -75,11 +75,22 @@ private[matrix] object LemmaConversions:
   given `Either[E1 <= E2, A]`[E1, E2, A](using E2 =:= E1): Conversion[Either[E1, A], Either[E2, A]] =
     genEither[E1, E2, A]
 
-  given `Either[E1 => E2, Matrix[H, W1 => W2, A]]`[E1, E2, H <: Int, W1 <: Int, W2 <: Int, A](using
-    W1 =:= W2,
-    E1 =:= E2,
-  ): Conversion[Either[E1, Matrix[H, W1, A]], Either[E2, Matrix[H, W2, A]]] =
-    e1 => `Either[E1 => E2, A]`(e1).map(`Matrix[H, W1 => W2, A]`)
+  def conv[S <: Int, I <: Int, A](
+    e: Either[S - I - 1 =:= 1, Matrix[S, S - I - 1 - 1, A]]
+  ): Either[S - 1 =:= I + 1, Matrix[S, S - (I + 1) - 1, A]] =
+    val e2: Either[S - 1 =:= I + 1, Matrix[S, S - I - 1 - 1, A]] =
+      `Either[E1 => E2, A]`[S - I - 1 =:= 1, S - 1 =:= I + 1, Matrix[S, S - I - 1 - 1, A]](using
+        lemmas.`A - B - C = D =:= A - C = B + D`
+      )(e)
+    e2.map { m =>
+      `Matrix[H, W1 => W2, A]`(using lemmas.`A - B - C - C =:= A - (B + C) - C`)(m)
+    }
+
+  def conv2[S <: Int, A](e: Either[S =:= 1, Matrix[S, S - 1, A]]): Either[S - 1 =:= 0, Matrix[S, S - 0 - 1, A]] =
+    val e2: Either[S - 1 =:= 0, Matrix[S, S - 1, A]] = `Either[E1 => E2, A]`(using lemmas.`A = B =:= A - B = 0`)(e)
+    e2.map { m =>
+      `Matrix[H, W1 => W2, A]`(using lemmas.`A - B =:= A - 0 - B`)(m)
+    }
 
   given `S = 1 =:= S - 1 = 0`[S <: Int]: Conversion[S =:= 1, S - 1 =:= 0] =
     eq => lemmas.`A = B =:= A - B = 0`[S, 1](eq)

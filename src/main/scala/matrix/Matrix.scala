@@ -84,9 +84,9 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
   def rowEchelon[A1 >: A: Div: Mul: Sub: Zero: One: Eq]: Matrix[Height, Width, A1] =
     GaussianElimination.on[Height, Width, A1](this)
 
-  def determinant[A1 >: A: Mul: Sub: Add](
-    algorithm: DeterminantAlgorithm[Height, A1] = LaplaceExpansion.determinant
-  )(using Height =:= Width): A1 = algorithm(this)
+  def determinant[A1 >: A: Mul: Sub: Add](using
+    algorithm: DeterminantAlgorithm[Height] = LaplaceExpansion.on[Height]
+  )(using Height =:= Width): A1 = algorithm.det[A1](this)
 
   def mapRows[Width2 <: Int, B](f: Vector[Width, A] => Vector[Width2, B]): Matrix[Height, Width2, B]
   def map[B](f: A => B): Matrix[Height, Width, B] = mapRows(_.map(f))
