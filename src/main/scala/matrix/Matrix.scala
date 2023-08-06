@@ -190,6 +190,12 @@ object Matrix:
   def identity[Size <: Int, A: One: Zero](using ValueOf[Size], Evidence[Size > 0]): Matrix[Size, Size, A] =
     diagonal(One.of[A])
 
+  def oneColumn[Height <: Int, A](column: Vector[Height, A]): Matrix[Height, 1, A] =
+    Matrix(column.map(Vector.one))
+
+  def oneRow[Width <: Int, A](row: Vector[Width, A]): Matrix[1, Width, A] =
+    Matrix(Vector.one(row))
+
   def map2[Height <: Int, Width <: Int, A, B, C](
     m1: Matrix[Height, Width, A],
     m2: Matrix[Height, Width, B],

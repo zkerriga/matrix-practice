@@ -3,18 +3,19 @@ package matrix.core.determinant
 import math.aliases.*
 import math.syntax.*
 import matrix.{Matrix, Vector}
-import matrix.core.MatrixConstructors.*
+import matrix.core.CatsLikeSyntax.*
 import matrix.core.LemmaConversions.given
+import matrix.core.MatrixConstructors.*
 import matrix.lemmas.given
 
-import scala.compiletime.ops.int.*
 import scala.annotation.tailrec
+import scala.compiletime.ops.int.*
 
 object LaplaceExpansion:
   private type DeterminantAcc[A] = A
 
   @tailrec
-  private def f1[S <: Int, I <: Int, A: Mul: Add: Sub](
+  private def goOverTop[S <: Int, I <: Int, A: Mul: Add: Sub](
     maybeLeftMatrixAndD: Either[I =:= 0, (Matrix[S - 1, I, A], DeterminantAcc[A])],
     currentColumn: Vector[S, A],
     maybeRightMatrix: Either[S - 1 =:= I, Matrix[S, S - I - 1, A]],
@@ -26,18 +27,19 @@ object LaplaceExpansion:
         maybeRightMatrix match
           case Left(sMinus1IsI) =>
             considering(iIs0, sMinus1IsI) {
-              determinant1x1(Matrix(Vector.of(currentColumn)))
+              determinant1x1(Matrix.oneRow(currentColumn))
             }
+
           case Right(rightMatrix) =>
+            import right.widthEvidence
             val right: Matrix[S, S - 1, A]               = considering(iIs0) { rightMatrix }
-            val currentColumnTail: Vector[S - 1, A]      = currentColumn.tail(using right.widthEvidence)
-            val leftMatrix: Matrix[S - 1, 1, A]          = Matrix(Vector.one(currentColumnTail)).transpose
-            val downRightMatrix: Matrix[S - 1, S - 1, A] = right.topTail(using currentColumnTail.sizeEvidence)
+            val downRightMatrix: Matrix[S - 1, S - 1, A] = right.topTail
+            val leftMatrix                               = Matrix.oneColumn(currentColumn.tail)
 
-            val minorDeterminant: DeterminantAcc[A] = currentColumn.head * determinant(downRightMatrix)
+            val minorDeterminant = currentColumn.head * determinant(downRightMatrix)
 
-            f1[S, 1, A](
-              maybeLeftMatrixAndD = Right(leftMatrix -> minorDeterminant),
+            goOverTop[S, 1, A](
+              maybeLeftMatrixAndD = (leftMatrix, minorDeterminant).asRight,
               currentColumn = right.leftColumn,
               maybeRightMatrix = right.leftTail,
               signCombinator = nextSignCombinator,
@@ -50,16 +52,16 @@ object LaplaceExpansion:
             val left: Matrix[S - 1, S - 1, A] = considering(sMinus1IsI) { leftMatrix }
             val minorDeterminant              = currentColumn.head * determinant(left)
             signCombinator(determinantAcc, minorDeterminant)
-          case Right(rightMatrix: Matrix[S, S - I - 1, A]) =>
-            val rightMatrixTail: Matrix[S - 1, S - I - 1, A] = rightMatrix.topTail(using leftMatrix.heightEvidence)
-            val concatendated: Matrix[S - 1, S - 1, A]       = rightMatrixTail.addLeft(leftMatrix)
-            val currentColumnTail: Vector[S - 1, A]          = currentColumn.tail(using leftMatrix.heightEvidence)
+
+          case Right(rightMatrix) =>
+            import leftMatrix.heightEvidence
+            val concatendated: Matrix[S - 1, S - 1, A] = rightMatrix.topTail.addLeft(leftMatrix)
 
             val minorDeterminant      = currentColumn.head * determinant(concatendated)
             val updatedDeterminantAcc = signCombinator(determinantAcc, minorDeterminant)
 
-            f1[S, I + 1, A](
-              maybeLeftMatrixAndD = Right(leftMatrix.addRight(currentColumnTail) -> updatedDeterminantAcc),
+            goOverTop[S, I + 1, A](
+              maybeLeftMatrixAndD = (leftMatrix.addRight(currentColumn.tail), updatedDeterminantAcc).asRight,
               currentColumn = rightMatrix.leftColumn,
               maybeRightMatrix = rightMatrix.leftTail,
               signCombinator = nextSignCombinator,
@@ -67,7 +69,7 @@ object LaplaceExpansion:
             )
 
   def determinant[Size <: Int, A: Mul](matrix: Matrix[Size, Size, A])(using add: Add[A], sub: Sub[A]): A =
-    f1[Size, 0, A](
+    goOverTop[Size, 0, A](
       maybeLeftMatrixAndD = Left(summon[0 =:= 0]),
       currentColumn = matrix.leftColumn,
       maybeRightMatrix = matrix.leftTail,
