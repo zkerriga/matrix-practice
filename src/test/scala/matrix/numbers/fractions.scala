@@ -6,7 +6,7 @@ import math.{HEq, One, Zero}
 import matrix.Matrix
 import org.apache.commons.math3.fraction.{BigFraction, Fraction}
 
-object Fractions:
+object fractions:
   given Div[Fraction]  = (f1: Fraction, f2: Fraction) => f1.divide(f2)
   given Mul[Fraction]  = (f1: Fraction, f2: Fraction) => f1.multiply(f2)
   given Sub[Fraction]  = (f1: Fraction, f2: Fraction) => f1.subtract(f2)

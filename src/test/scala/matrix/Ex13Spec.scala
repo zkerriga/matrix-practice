@@ -1,6 +1,6 @@
 package matrix
 
-import matrix.numbers.Fractions.{*, given}
+import matrix.numbers.fractions.{*, given}
 import org.apache.commons.math3.fraction.{BigFraction, Fraction}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
