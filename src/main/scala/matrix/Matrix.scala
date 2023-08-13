@@ -83,7 +83,8 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
    *   [[matrix.core.GaussianElimination]] documentaion
    */
   def rowEchelon[A1 >: A: Div: Mul: Sub: Zero: One: Eq]: Matrix[Height, Width, A1] =
-    GaussianElimination.on[Height, Width, A1](this)
+    GaussianElimination.on[Height, Width, A1](this) match
+      case (matrix, _) => matrix
 
   def determinant[A1 >: A: Mul: Sub: Add](using
     algorithm: DeterminantAlgorithm[Height] = LaplaceExpansion.on[Height]
@@ -92,6 +93,10 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
   def inverse[A1 >: A: Div: Mul: Sub: Add: Zero: One: Eq](using
     algorithm: InverseAlgorithm[Height] = DeterminantGaussianElimination.on()
   )(using Height =:= Width): Option[Matrix[Height, Height, A1]] = algorithm.inv[A1](this)
+
+  def rank[A1 >: A: Div: Mul: Sub: Zero: One: Eq]: Int =
+    GaussianElimination.on[Height, Width, A1](this) match
+      case (_, rank) => rank.get
 
   def mapRows[Width2 <: Int, B](f: Vector[Width, A] => Vector[Width2, B]): Matrix[Height, Width2, B]
   def map[B](f: A => B): Matrix[Height, Width, B] = mapRows(_.map(f))
