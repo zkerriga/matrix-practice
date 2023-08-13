@@ -48,9 +48,12 @@ import scala.compiletime.ops.int.*
  *     the compiler).
  */
 object GaussianElimination {
+  import Rank.RankCounter
+
   private case class SubMatrixResult[H <: Int, W <: Int, A](
     subMatrix: Matrix[H, W, A],
     toSubtractAbove: Trapezoid[W - 1, A],
+    rank: RankCounter,
   )
 
   private def subtractBy[A: Mul: Sub](coefficient: A)(x: A, base: A): A =
@@ -112,7 +115,7 @@ object GaussianElimination {
     topTail: Vector[W - 1, A],
     downRightMatrixToProcess: Matrix[H - 1, W - 1, A],
   ): SubMatrixResult[H, W, A] =
-    val SubMatrixResult(downRightMatrix, toSubtract) = recursive(downRightMatrixToProcess)
+    val SubMatrixResult(downRightMatrix, toSubtract, rank) = recursive(downRightMatrixToProcess)
 
     val subtracted: Node.Processed[W - 1, A] = subtractUp(topTail, toSubtract).divideBy(topLead)
 
@@ -122,6 +125,7 @@ object GaussianElimination {
     SubMatrixResult(
       zeroedDownMatrix.addTop(topVector),
       Trapezoid.Next(subtracted, toSubtract),
+      rank.increment,
     )
 
   private def onDownSubtraction[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One: Eq](
@@ -136,17 +140,20 @@ object GaussianElimination {
         SubMatrixResult(
           considering(hIs1) { Matrix(Vector.one[Vector[W, A]](One.of[A] +: dividedTail)) },
           Trapezoid.First(Node.Tail(dividedTail.asRight)),
+          RankCounter.One,
         )
       case OnlyLeft(height, ev, wIs1) =>
         val column: Vector[H, A] = One.of[A] +: Vector.fill(height)(Zero.of[A])(using ev)
         SubMatrixResult(
           considering(wIs1) { Matrix(Vector.one(column)).transpose },
           Trapezoid.First(Node.Tail(wIs1.asLeft)),
+          RankCounter.One,
         )
       case OnlyLead(hIs1, wIs1) =>
         SubMatrixResult(
           considering(hIs1, wIs1) { Matrix(Vector.one[Vector[W, A]](Vector.one(One.of[A]))) },
           Trapezoid.First(Node.Tail(wIs1.asLeft)),
+          RankCounter.One,
         )
 
   private def onZeroColumn[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One: Eq](
@@ -156,15 +163,17 @@ object GaussianElimination {
     val zeroColumn = Vector.fill(height)(Zero.of[A])
     maybeRightMatrixToProcess match
       case Right(rightMatrixToProcess) =>
-        val SubMatrixResult(rightMatrix, toSubtract) = recursive(rightMatrixToProcess)
+        val SubMatrixResult(rightMatrix, toSubtract, rank) = recursive(rightMatrixToProcess)
         SubMatrixResult(
           rightMatrix.addLeft(zeroColumn),
           Trapezoid.Next(Trapezoid.ZeroColumn, toSubtract),
+          rank,
         )
       case Left(wIs1) =>
         SubMatrixResult(
           considering(wIs1) { Matrix(zeroColumn.map(zero => Vector.one(zero))) },
           Trapezoid.First(Trapezoid.ZeroColumn),
+          RankCounter.Empty,
         )
 
   private def moveNonZeroLeadRowToTop[H <: Int, W <: Int, A: Zero: Eq](matrix: Matrix[H, W, A]): Matrix[H, W, A] =
@@ -217,5 +226,6 @@ object GaussianElimination {
 
   def on[Height <: Int, Width <: Int, A: Div: Mul: Sub: Zero: One: Eq](
     matrix: Matrix[Height, Width, A]
-  ): Matrix[Height, Width, A] = recursive(matrix).subMatrix
+  ): (Matrix[Height, Width, A], RankCounter) = recursive(matrix) match
+    case SubMatrixResult(subMatrix, _, rank) => subMatrix -> rank
 }
