@@ -6,6 +6,7 @@ import math.syntax.*
 import lemmas.given
 import matrix.core.echelon.GaussianElimination
 import matrix.core.determinant.{DeterminantAlgorithm, LaplaceExpansion}
+import matrix.core.inverse.{InverseAlgorithm, DeterminantGaussianElimination}
 import matrix.core.LemmaConversions.`Matrix[H, W1 <= W2, A]`
 
 import scala.compiletime.ops.int.*
@@ -87,6 +88,10 @@ trait Matrix[Height <: Int, Width <: Int, +A](val height: Height, val width: Wid
   def determinant[A1 >: A: Mul: Sub: Add](using
     algorithm: DeterminantAlgorithm[Height] = LaplaceExpansion.on[Height]
   )(using Height =:= Width): A1 = algorithm.det[A1](this)
+
+  def inverse[A1 >: A: Div: Mul: Sub: Add: Zero: One: Eq](using
+    algorithm: InverseAlgorithm[Height] = DeterminantGaussianElimination.on()
+  )(using Height =:= Width): Option[Matrix[Height, Height, A1]] = algorithm.inv[A1](this)
 
   def mapRows[Width2 <: Int, B](f: Vector[Width, A] => Vector[Width2, B]): Matrix[Height, Width2, B]
   def map[B](f: A => B): Matrix[Height, Width, B] = mapRows(_.map(f))
@@ -184,11 +189,17 @@ object Matrix:
       },
     )
 
-  def diagonal[Size <: Int, A: Zero](diagonal: A)(using ValueOf[Size], Evidence[Size > 0]): Matrix[Size, Size, A] =
-    tabulate[Size, Size, A](valueOf, valueOf) { (y, x) => if y == x then diagonal else Zero.of[A] }
+  def diagonal[Size <: Int, A: Zero](size: Size, diagonalA: A)(using Evidence[Size > 0]): Matrix[Size, Size, A] =
+    tabulate[Size, Size, A](size, size) { (y, x) => if y == x then diagonalA else Zero.of[A] }
+
+  def diagonal[Size <: Int, A: Zero](diagonalA: A)(using ValueOf[Size], Evidence[Size > 0]): Matrix[Size, Size, A] =
+    diagonal[Size, A](valueOf, diagonalA)
+
+  def identity[Size <: Int, A: One: Zero](size: Size)(using Evidence[Size > 0]): Matrix[Size, Size, A] =
+    diagonal(size, One.of[A])
 
   def identity[Size <: Int, A: One: Zero](using ValueOf[Size], Evidence[Size > 0]): Matrix[Size, Size, A] =
-    diagonal(One.of[A])
+    identity[Size, A](valueOf)
 
   def oneColumn[Height <: Int, A](column: Vector[Height, A]): Matrix[Height, 1, A] =
     Matrix(column.map(Vector.one))

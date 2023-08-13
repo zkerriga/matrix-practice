@@ -86,3 +86,8 @@ private[matrix] object LemmaConversions:
 
   given `W - 1 > 0 =:= W > 1`[W <: Int]: Conversion[Evidence[W - 1 > 0], Evidence[W > 1]] =
     ev => lemmas.`A - 1 > 0 =:= A > 1`(using ev)
+
+  given `S1 => S2 > 0`[S1 <: Int, S2 <: Int](using
+    S1 =:= S2
+  ): Conversion[Evidence[S1 > 0], Evidence[S2 > 0]] =
+    ev1 => summon[S1 =:= S2].liftCo[[s] =>> Evidence[(s & Int) > 0]](ev1)
