@@ -1,11 +1,11 @@
 package matrix
 
+import math.aliases.*
+import math.{HEq, One, Zero}
+import matrix.core.determinant.LeibnizFormula
+import org.apache.commons.math3.fraction.{BigFraction, Fraction}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.apache.commons.math3.fraction.{BigFraction, Fraction}
-import math.aliases.*
-import math.{One, Zero, HEq}
-import matrix.core.determinant.LeibnizFormula
 
 class Ex11Spec extends AnyFlatSpec with Matchers:
   "Matrix.determinant" should "return just value in case of 1x1 matrix" in {
@@ -95,7 +95,7 @@ class Ex11Spec extends AnyFlatSpec with Matchers:
         Vector.of(17.0, -2.0, 0.0, -4.0, 3.0, 3.0),
         Vector.of(74.0, 0.0, 8.0, 10.0, -1.0, 8.0),
         Vector.of(3.0, -21.0, 1.0, 0.0, 7.0, 19.0),
-        Vector.of(-8.0, -17.0, 21.0, 11.0, 1.0, 0.0)
+        Vector.of(-8.0, -17.0, 21.0, 11.0, 1.0, 0.0),
       )
     }
 

@@ -1,7 +1,7 @@
 package matrix
 
-import scala.compiletime.ops.int.*
 import scala.compiletime.ops.boolean.*
+import scala.compiletime.ops.int.*
 
 /**
  * @note

@@ -2,7 +2,7 @@ package matrix.numbers
 
 import math.aliases.*
 import math.syntax.*
-import math.{Zero, One, HEq}
+import math.{HEq, One, Zero}
 import matrix.Matrix
 import org.apache.commons.math3.fraction.{BigFraction, Fraction}
 

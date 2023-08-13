@@ -3,11 +3,11 @@ package matrix
 import math.*
 import math.aliases.*
 import math.syntax.*
-import lemmas.given
-import matrix.core.echelon.GaussianElimination
-import matrix.core.determinant.{DeterminantAlgorithm, LaplaceExpansion}
-import matrix.core.inverse.{InverseAlgorithm, DeterminantGaussianElimination}
 import matrix.core.LemmaConversions.`Matrix[H, W1 <= W2, A]`
+import matrix.core.determinant.{DeterminantAlgorithm, LaplaceExpansion}
+import matrix.core.echelon.GaussianElimination
+import matrix.core.inverse.{DeterminantGaussianElimination, InverseAlgorithm}
+import matrix.lemmas.given
 
 import scala.compiletime.ops.int.*
 

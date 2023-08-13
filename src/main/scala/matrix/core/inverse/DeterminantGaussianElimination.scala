@@ -2,11 +2,11 @@ package matrix.core.inverse
 
 import math.aliases.*
 import math.syntax.*
-import math.{Zero, One}
-import matrix.{Evidence, Matrix, Vector}
-import matrix.core.determinant.{DeterminantAlgorithm, LaplaceExpansion}
+import math.{One, Zero}
 import matrix.core.LemmaConversions.{`S1 => S2 > 0`, `Vector[S1 <= S2, A]`}
+import matrix.core.determinant.{DeterminantAlgorithm, LaplaceExpansion}
 import matrix.lemmas.given
+import matrix.{Evidence, Matrix, Vector}
 
 import scala.compiletime.ops.int.*
 

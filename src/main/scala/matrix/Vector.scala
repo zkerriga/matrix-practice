@@ -3,10 +3,10 @@ package matrix
 import math.*
 import math.aliases.*
 import math.syntax.*
-import lemmas.given
+import matrix.lemmas.given
 
 import scala.collection.immutable.Vector as StdVec
-import scala.compiletime.ops.int.{>, -, +}
+import scala.compiletime.ops.int.{+, -, >}
 import scala.math.Ordering.Implicits.*
 
 trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[Size > 0]):

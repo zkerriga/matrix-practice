@@ -1,12 +1,11 @@
 package matrix
 
+import math.aliases.*
+import math.{HEq, One, Zero}
+import matrix.numbers.Fractions.{*, given}
+import org.apache.commons.math3.fraction.{BigFraction, Fraction}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.apache.commons.math3.fraction.{BigFraction, Fraction}
-import math.aliases.*
-import math.{One, Zero, HEq}
-
-import numbers.Fractions.{*, given}
 
 class Ex12Spec extends AnyFlatSpec with Matchers:
   "Matrix.inverse" should "return identity for identity marix" in {

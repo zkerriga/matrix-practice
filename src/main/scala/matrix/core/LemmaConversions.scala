@@ -1,8 +1,8 @@
 package matrix.core
 
+import matrix.{Evidence, Matrix, Vector, lemmas}
+
 import scala.compiletime.ops.int.*
-import matrix.lemmas
-import matrix.{Evidence, Matrix, Vector}
 
 /**
  * @note

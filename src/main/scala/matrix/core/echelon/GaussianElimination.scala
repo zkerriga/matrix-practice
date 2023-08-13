@@ -1,13 +1,13 @@
 package matrix.core.echelon
 
 import math.aliases.*
-import math.{Zero, One}
 import math.syntax.*
-import matrix.{Evidence, Matrix, Vector}
+import math.{One, Zero}
 import matrix.core.CatsLikeSyntax.*
 import matrix.core.LemmaConversions.given
 import matrix.core.MatrixConstructors.*
 import matrix.lemmas.given
+import matrix.{Evidence, Matrix, Vector}
 
 import scala.annotation.tailrec
 import scala.compiletime.ops.int.*

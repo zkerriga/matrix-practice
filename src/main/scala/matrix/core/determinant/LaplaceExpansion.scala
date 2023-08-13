@@ -2,11 +2,11 @@ package matrix.core.determinant
 
 import math.aliases.*
 import math.syntax.*
-import matrix.{Matrix, Vector}
 import matrix.core.CatsLikeSyntax.*
 import matrix.core.LemmaConversions.given
 import matrix.core.MatrixConstructors.*
 import matrix.lemmas.given
+import matrix.{Matrix, Vector}
 
 import scala.annotation.tailrec
 import scala.compiletime.ops.int.*

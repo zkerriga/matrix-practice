@@ -1,7 +1,7 @@
 package matrix.core
 
 import math.aliases.*
-import math.{Zero, One}
+import math.{One, Zero}
 import matrix.Matrix
 
 package object inverse {
