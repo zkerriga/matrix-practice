@@ -6,21 +6,9 @@ import org.apache.commons.math3.fraction.{BigFraction, Fraction}
 import math.aliases.*
 import math.{One, Zero, HEq}
 
+import numbers.Fractions.{*, given}
+
 class Ex12Spec extends AnyFlatSpec with Matchers:
-  given Div[Fraction]  = (f1: Fraction, f2: Fraction) => f1.divide(f2)
-  given Mul[Fraction]  = (f1: Fraction, f2: Fraction) => f1.multiply(f2)
-  given Sub[Fraction]  = (f1: Fraction, f2: Fraction) => f1.subtract(f2)
-  given Add[Fraction]  = (f1: Fraction, f2: Fraction) => f1.add(f2)
-  given Zero[Fraction] = Zero(Fraction.ZERO)
-  given One[Fraction]  = One(Fraction.ONE)
-  given Eq[Fraction]   = HEq.fromUniversal
-
-  extension [H <: Int, W <: Int](matrix: Matrix[H, W, Int])
-    def toFraction: Matrix[H, W, Fraction] = matrix.map(Fraction(_))
-
-  def F(num: Int, den: Int): Fraction = Fraction(num, den)
-  def F(i: Int): Fraction             = Fraction(i)
-
   "Matrix.inverse" should "return identity for identity marix" in {
     val matrix: Matrix[3, 3, Fraction] = Matrix.identity[3, Fraction]
 
