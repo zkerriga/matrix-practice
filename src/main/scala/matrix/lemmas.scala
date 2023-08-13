@@ -14,6 +14,7 @@ object lemmas:
 
   given `A = B =:= A - B = 0`[A <: Int, B <: Int]: =:=[A =:= B, A - B =:= 0]                      = sameGuaranteed
   given `A - B + B =:= A`[A <: Int, B <: Int]: =:=[A - B + B, A]                                  = sameGuaranteed
+  given `A + B - B =:= A`[A <: Int, B <: Int]: =:=[A + B - B, A]                                  = sameGuaranteed
   given `A - B - C =:= A - (B + C)`[A <: Int, B <: Int, C <: Int]: =:=[A - B - C, A - (B + C)]    = sameGuaranteed
   given `A + (B - A - C) =:= B - C`[A <: Int, B <: Int, C <: Int]: =:=[A + (B - A - C), B - C]    = sameGuaranteed
   given `A - B = C =:= B = A - C`[A <: Int, B <: Int, C <: Int](using A - B =:= C): =:=[B, A - C] = sameGuaranteed
