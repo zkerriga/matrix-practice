@@ -11,27 +11,19 @@ object ProjectionMatrix:
     val one  = One.of[A]
     val two  = one + one
 
-    val halfHeight = (fov / two).tan * near
-    val halfWidth  = halfHeight * ratio
+    val height = two * (fov / two).tan * near
+    val width  = height * ratio
 
-    val left   = -halfWidth
-    val right  = halfWidth
-    val bottom = -halfHeight
-    val top    = halfHeight
-
-    val x = two * near / (right - left)
-    val y = two * near / (top - bottom)
-    val a = (right + left) / (right - left)
-    val b = (top + bottom) / (top - bottom)
+    val x = two * near / width
+    val y = two * near / height
     val c = -(far + near) / (far - near)
     val d = -(two * far * near) / (far - near)
-    val e = -one
 
     Matrix[4, 4, A] {
       Vector.of(
-        Vector.of(x, zero, a, zero),
-        Vector.of(zero, y, b, zero),
+        Vector.of(x, zero, zero, zero),
+        Vector.of(zero, y, zero, zero),
         Vector.of(zero, zero, c, d),
-        Vector.of(zero, zero, e, zero),
+        Vector.of(zero, zero, -one, zero),
       )
     }
