@@ -11,11 +11,11 @@ object ProjectionMatrix:
     val one  = One.of[A]
     val two  = one + one
 
-    val height = two * (fov / two).tan * near
-    val width  = height * ratio
+    val halfFovTan = (fov / two).tan
 
-    val x = two * near / width
-    val y = two * near / height
+    val x = one / (halfFovTan * ratio)
+    val y = one / halfFovTan
+
     val c = -(far + near) / (far - near)
     val d = -(two * far * near) / (far - near)
 
