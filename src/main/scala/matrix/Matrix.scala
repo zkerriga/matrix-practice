@@ -6,6 +6,7 @@ import math.syntax.*
 import matrix.core.LemmaConversions.`Matrix[H, W1 <= W2, A]`
 import matrix.core.determinant.{DeterminantAlgorithm, LaplaceExpansion}
 import matrix.core.echelon.GaussianElimination
+import matrix.core.projection.ProjectionMatrix
 import matrix.core.inverse.{DeterminantGaussianElimination, InverseAlgorithm}
 import matrix.lemmas.given
 
@@ -211,6 +212,9 @@ object Matrix:
 
   def oneRow[Width <: Int, A](row: Vector[Width, A]): Matrix[1, Width, A] =
     Matrix(Vector.one(row))
+
+  def projection[A: Tan: Div: Mul: Sub: Add: One: Zero](fov: A, ratio: A, near: A, far: A): Matrix[4, 4, A] =
+    ProjectionMatrix.from(fov, ratio, near, far)
 
   def map2[Height <: Int, Width <: Int, A, B, C](
     m1: Matrix[Height, Width, A],
