@@ -1,6 +1,5 @@
-package matrix.numbers
+package matrix
 
-import matrix.{Matrix, Vector}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
