@@ -16,8 +16,10 @@ object ProjectionMatrix:
     val x = one / (halfFovTan * ratio)
     val y = one / halfFovTan
 
-    val c = -(far + near) / (far - near)
-    val d = -(two * far * near) / (far - near)
+    val diff = near - far
+
+    val c = (far + near) / diff
+    val d = (two * far * near) / diff
 
     Matrix[4, 4, A] {
       Vector.of(
