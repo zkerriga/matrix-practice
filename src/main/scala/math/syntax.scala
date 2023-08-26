@@ -6,3 +6,5 @@ object syntax:
   export HMul.*
   export HSub.-
   export HEq.{===, =!=}
+  export HNeg.unary_-
+  export HTan.tan
