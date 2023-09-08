@@ -75,7 +75,7 @@ object LaplaceExpansion:
 
   def determinant[Size <: Int, A: Mul](matrix: Matrix[Size, Size, A])(using add: Add[A], sub: Sub[A]): A =
     goOverTop[Size, 0, A](
-      maybeLeftMatrixAndD = Left(summon[0 =:= 0]),
+      maybeLeftMatrixAndD = summon[0 =:= 0].asLeft,
       currentColumn = matrix.leftColumn,
       maybeRightMatrix = matrix.leftTail,
       signCombinator = add.add,

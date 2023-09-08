@@ -15,13 +15,12 @@ object DeterminantGaussianElimination:
     matrix: Matrix[S, S, A],
     detAlg: DeterminantAlgorithm[S],
   ): Option[Matrix[S, S, A]] =
-    Option.when(matrix.determinant(using detAlg) =!= Zero.of[A]) {
+    Option.when(matrix.determinant(using detAlg) =!= Zero.of[A]):
       import matrix.heightEvidence as sizeEvidence
       val size: S    = matrix.height
       val augmented  = Matrix.identity[S, A](size).addLeft(matrix)
       val eliminated = augmented.rowEchelon
-      eliminated.mapRows { row => row.drop(size)(using sizeEvidence) }
-    }
+      eliminated.mapRows(_.drop(size)(using sizeEvidence))
 
   def on[Size <: Int](detAlg: DeterminantAlgorithm[Size] = LaplaceExpansion.on[Size]): InverseAlgorithm[Size] = new:
     def inv[A: Div: Mul: Sub: Add: Zero: One: Eq](matrix: Matrix[Size, Size, A]): Option[Matrix[Size, Size, A]] =

@@ -3,6 +3,7 @@ package matrix
 import math.*
 import math.aliases.*
 import math.syntax.*
+import matrix.core.LemmaConversions.`Vector[S1 => S2, A]`
 import matrix.lemmas.given
 
 import scala.collection.immutable.Vector as StdVec
@@ -32,11 +33,7 @@ trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[S
 
   /** alias for the cross product operation, see [[Vector.crossProduct]] */
   infix def x[B, C](other: Vector[3, B])(using Size =:= 3, HMul[A, B, C], Sub[C]): Vector[3, C] =
-    Vector.crossProduct(
-      // using provided evidence we clarify the type of `this` from `Vector[Size, A]` to `Vector[3, A]`
-      summon[Size =:= 3].liftCo[[x] =>> Vector[x & Int, A]](this),
-      other,
-    )
+    Vector.crossProduct(this, other)
 
   /** 1-norm (also called the Taxicab norm or Manhattan norm) */
   def norm1[A1 >: A: Add: Abs]: A1 = sum.abs
@@ -45,7 +42,9 @@ trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[S
   def norm[A1 >: A: Mul: Add: Sqrt]: A1 = map(x => x * x).sum.sqrt
 
   /** ∞-norm (also called the supremum norm) */
-  def normInf[A1 >: A: Abs: Ordering]: A1 = reduceLeft { (a, b) => a.abs max b.abs }
+  def normInf[A1 >: A: Abs: Ordering]: A1 =
+    reduceLeft: (a, b) =>
+      a.abs max b.abs
 
   def map[B](f: A => B): Vector[Size, B]
   def reduceLeft[B >: A](op: (B, A) => B): B
@@ -55,10 +54,9 @@ trait Vector[Size <: Int, +A](val size: Size)(using val sizeEvidence: Evidence[S
 
   override def equals(obj: Any): Boolean = (this eq obj.asInstanceOf[AnyRef]) || (obj match
     case other: Vector[Size @unchecked, A @unchecked] =>
-      (size == other.size) && (0 until size).forall { index =>
+      (size == other.size) && (0 until size).forall: index =>
         given Evidence[index.type IsIndexFor Size] = guaranteed
         apply(index) == other.apply(index)
-      }
     case _ => false
   )
 
@@ -90,8 +88,7 @@ object Vector:
       import other.sizeEvidence
       Impl(size |+ other.size, vec ++ StdVec.tabulate(other.size)(index => other(index)(using guaranteed)))
 
-    def map[B](f: A => B): Vector[Size, B] =
-      Impl(size, vec.map(f))
+    def map[B](f: A => B): Vector[Size, B]     = Impl(size, vec.map(f))
     def reduceLeft[B >: A](op: (B, A) => B): B = vec.reduceLeft(op)
     def foldLeft[B](z: B)(op: (B, A) => B): B  = vec.foldLeft(z)(op)
 
@@ -132,9 +129,7 @@ object Vector:
     sizeEvidence: Tuple.Size[tuple.type] =:= Size,
     unionEvidence: Tuple.Union[tuple.type] <:< A,
   ): Vector[Size, A] =
-    val cleanSize  = sizeEvidence.liftCo[[x] =>> Vector[x & Int, Tuple.Union[tuple.type]]]
-    val cleanUnion = unionEvidence.liftCo[[x] =>> Vector[Size, x]]
-    cleanSize.andThen(cleanUnion)(make(tuple))
+    unionEvidence.liftCo[[a] =>> Vector[Size, a]](make(tuple))
 
   def one[A](value: A): Vector[1, A] = make(value *: EmptyTuple)
   def of[A](value: A): Vector[1, A]  = one(value)
@@ -160,21 +155,20 @@ object Vector:
    *   function for reducing the elements obtained from `f`
    */
   def tabulateReduce[Size <: Int, A](size: Size, op: (A, A) => A)(f: Tabulate[Size, A])(using Evidence[Size > 0]): A =
-    (1 until size).foldLeft[A](f(0)(using guaranteed)) { (acc, index) =>
+    (1 until size).foldLeft[A](f(0)(using guaranteed)): (acc, index) =>
       op(acc, f(index)(using guaranteed))
-    }
 
-  def map2[Size <: Int, A, B, C](v1: Vector[Size, A], v2: Vector[Size, B])(
-    f: (A, B) => C
-  ): Vector[Size, C] =
+  def map2[Size <: Int, A, B, C](v1: Vector[Size, A], v2: Vector[Size, B])(f: (A, B) => C): Vector[Size, C] =
     import v1.sizeEvidence
-    tabulate[Size, C](v1.size) { index => f(v1(index), v2(index)) }
+    tabulate[Size, C](v1.size): index =>
+      f(v1(index), v2(index))
 
   /* ADDITIONAL MATH OPERATIONS */
 
   /** generates [[Interpolation]] for any [[Vector]] which type can be interpolated */
-  given [Size <: Int, A, Time](using Interpolation[A, Time]): Interpolation[Vector[Size, A], Time] =
-    (from, to, time) => map2(from, to)((value1, value2) => (value1, value2).interpolateBy(time))
+  given [Size <: Int, A, Time](using Interpolation[A, Time]): Interpolation[Vector[Size, A], Time] = (from, to, time) =>
+    map2(from, to): (value1, value2) =>
+      (value1, value2).interpolateBy(time)
 
   /** computes a linear combination of the [[Vector]]s provided, using the corresponding scalar coefficients */
   def linearCombination[N <: Int, Size <: Int, A, B, C](

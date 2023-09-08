@@ -71,13 +71,12 @@ object GaussianElimination {
           case Trapezoid.ZeroColumn => Node.Skip[W, A](baseLead, Node.Tail[W - 1, A](maybeBaseTail))
           case Node.Tail(maybeDownTail) =>
             val upSubtracted =
-              Either.map2(maybeBaseTail, maybeDownTail) { (baseTail, downTail) =>
+              Either.map2(maybeBaseTail, maybeDownTail): (baseTail, downTail) =>
                 Vector.map2(baseTail, downTail)(subtractBy(baseLead))
-              }
             Node.Zero(Zero.of[A], Node.Tail(upSubtracted))
 
       case Trapezoid.Next(down, nextTrap) =>
-        val maybeProcessed = maybeBaseTail.map { baseTail => subtractUp(baseTail, nextTrap) }
+        val maybeProcessed = maybeBaseTail.map(subtractUp(_, nextTrap))
         down match
           case Trapezoid.ZeroColumn =>
             Node.Skip(baseLead, Node(maybeProcessed))
@@ -99,12 +98,11 @@ object GaussianElimination {
   ): SubtractedDown[H, W, A] =
     (maybeTopVectorTail, maybeTailMatrix) match
       case (Right(topVectorTail), Right(tailMatrix)) =>
-        val subtractedMatrix = tailMatrix.mapRows { tailMatrixRow =>
+        val subtractedMatrix = tailMatrix.mapRows: tailMatrixRow =>
           val rowLead = tailMatrixRow.head
           val rowTail = tailMatrixRow.tail(using topVectorTail.sizeEvidence)
           if rowLead === Zero.of[A] then rowTail
           else Vector.map2(rowTail, topVectorTail)(subtractBy(rowLead / topVectorLead))
-        }
         ToProcess(topVectorTail, subtractedMatrix)
       case (Right(topVectorTail), Left(hIs1)) => OnlyTop(topVectorTail, hIs1)
       case (Left(wIs1), Right(tailMatrix))    => OnlyLeft(tailMatrix.height, tailMatrix.heightEvidence, wIs1)
@@ -180,7 +178,7 @@ object GaussianElimination {
     val topVector = matrix.topRow
     if topVector.head =!= Zero.of[A] then matrix
     else
-      matrix.topTail.toOption.fold(matrix) { tailMatrix =>
+      matrix.topTail.toOption.fold(matrix): tailMatrix =>
         @tailrec
         def moving[I <: Int](left: Matrix[H - I, W, A], skipped: Matrix[I, W, A]): Matrix[H, W, A] = {
           val topVector       = left.topRow
@@ -197,7 +195,6 @@ object GaussianElimination {
             rest.addTop(topVector)
         }
         moving[1](tailMatrix, Matrix(Vector.one(topVector)))
-      }
 
   private def recursive[H <: Int, W <: Int, A: Div: Mul: Sub: Zero: One: Eq](
     matrix: Matrix[H, W, A]
