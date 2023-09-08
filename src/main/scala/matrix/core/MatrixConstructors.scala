@@ -7,15 +7,8 @@ import matrix.{Matrix, Vector}
 import scala.compiletime.ops.int.*
 
 private[core] object MatrixConstructors:
-  def considering[Size, A](size: Size)(f: Size ?=> A): A = {
-    given Size = size
-    f
-  }
-  def considering[H, W, A](h: H, w: W)(f: (H, W) ?=> A): A = {
-    given H = h
-    given W = w
-    f
-  }
+  def considering[Size, A](size: Size)(f: Size ?=> A): A   = f(using size)
+  def considering[H, W, A](h: H, w: W)(f: (H, W) ?=> A): A = f(using h, w)
 
   def desplitTop[H <: Int, W <: Int, A](
     top: Vector[W, A],
