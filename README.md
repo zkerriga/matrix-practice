@@ -45,3 +45,24 @@ the error:
 [error]    |       Found:    (matrix.test.v3 : matrix.Vector[(3 : Int), Double])
 [error]    |       Required: matrix.Vector[(2 : Int), Double]
 ```
+
+---
+
+In addition to simple operations, the project contains complex algorithms that are implemented using only the public matrix and vector API, which shows how proofs and compiletime checks can work. See [LaplaceExpansion.scala](./src/main/scala/matrix/core/determinant/LaplaceExpansion.scala), [GaussianElimination.scala](./src/main/scala//matrix/core/echelon/GaussianElimination.scala).
+
+All functionalities with links to their use cases (tests):
+- [x] Addition, Subtraction, Scaling [Ex00](./src/test/scala/matrix/Ex00Spec.scala)
+- [x] Linear combination [Ex01](./src/test/scala/matrix/Ex01Spec.scala)
+- [x] Linear interpolation [Ex02](./src/test/scala/matrix/Ex02Spec.scala)
+- [x] Dot product [Ex03](./src/test/scala/matrix/Ex03Spec.scala)
+- [x] Manhattan norm, Euclidean norm, Supremum norm [Ex04](./src/test/scala/matrix/Ex04Spec.scala)
+- [x] Cosine of angle between two vectors [Ex05](./src/test/scala/matrix/Ex05Spec.scala)
+- [x] Cross product [Ex06](./src/test/scala/matrix/Ex06Spec.scala)
+- [x] Linear map and matrix multiplication [Ex07](./src/test/scala/matrix/Ex07Spec.scala)
+- [x] Trace [Ex08](./src/test/scala/matrix/Ex08Spec.scala)
+- [x] Transponse [Ex09](./src/test/scala/matrix/Ex09Spec.scala)
+- [x] Reduced row echelon form via Gaussian Elimination [Ex10](./src/test/scala/matrix/Ex10Spec.scala)
+- [x] Determinant via Laplace Expansion [Ex11](./src/test/scala/matrix/Ex11Spec.scala)
+- [x] Inverse matrix [Ex12](./src/test/scala/matrix/Ex12Spec.scala)
+- [x] Rank [Ex13](./src/test/scala/matrix/Ex13Spec.scala)
+- [x] Projection matrix [Ex14](./src/test/scala/matrix/Ex14Spec.scala)
